@@ -1,70 +1,53 @@
-import assert from "assert";
+"use strict";
 
-import JSONstringifyWithSortedKeys from "fast-json-stable-stringify";
-import {RBTree as RbTree} from "bintrees";
+const JSONstringifyWithSortedKeys = require(`fast-json-stable-stringify`);
 
-const StringComparison = (a, b) => a.localeCompare(b);
-
-//TODO make clients reset on server restarts
-
-const CollabTree = class {
-
-    constructor (ToString, FromString) {
-
-        this._tree = new RbTree(StringComparison);
-
-        this._ToString = ToString;
-        this._FromString = FromString;
-
-    }
-
-    //TODO figure out tree interface
-
-};
-
-const verifyCompatibilityWithJsonStringify = (something) => {
-    if (something === undefined) {
-        throw new TypeError("undefined is not JSON serializable");
+const assert = (somethingTruthy) => {
+    if (!somethingTruthy) {
+        throw `AssertionError`;
     }
 };
+
+const JSONstringify = JSON.stringify;
+
+const undefinedToJsonErrMsg = `undefined is not JSON serializable`; 
 
 const AsJson = (something) => {
-    verifyCompatibilityWithJsonStringify(something);
-    return JSON.stringify(something);
+    if (something === undefined) {
+        throw new TypeError(undefinedToJsonErrMsg);
+    }
+    return JSONstringify(something);
 };
 
 const AsJsonWithSortedKeys = (something) => {
-    verifyCompatibilityWithJsonStringify(something);
+    if (something === undefined) {
+        throw new TypeError(undefinedToJsonErrMsg);
+    }
     return JSONstringifyWithSortedKeys(something);
 };
 
 const FromJson = JSON.parse;
 
+const DefaultTransactionAsChanges = (transaction, state, derivedState) => {
 
-const DefaultTransactionAsChanges = function (transaction, keyVals, 
-                                              derivedState, KeyHasChanged) {
-    return transaction.filter([key, val] => !KeyHasChanged(key));
-};
-
-const firstVersion = 0;
-
-const updateSortedKeys = (change, state, derivedState) => {
-
-    derivedState.sortedKeys._tree
-        [state._map.has(change.keyAsString)? "insert" : "remove"]
-            (change.keyAsString);
+    if (state.ValAsStringOf(transaction.key) 
+    === state.ValAsString(transaction.assumedVal)) {
+        return [transaction];
+    }
+    return [];
 
 };
 
-const BaseCollab = class {
+const doNothing = () => {};
 
-    constructor ({storagePath,
-                  CollabStorage,
+const CollabBase = class {
+
+    constructor ({CollabStorage,
                   CollabMap,
+                  storagePath,
                   defaultVal=null, 
                   TransactionAsChanges=DefaultTransactionAsChanges, 
-                  updateDerivedState, 
-                  shouldAddSortedKeysToDerivedState=false, 
+                  updateDerivedState=doNothing, 
                   KeyAsString=AsJsonWithSortedKeys,
                   KeyFromString=FromJson,
                   ValAsString=AsJsonWithSortedKeys,
@@ -91,10 +74,8 @@ const BaseCollab = class {
         assert(TransactionFromString instanceof Function);
         this._TransactionFromString = TransactionFromString;
 
-
         this._defaultVal = defaultVal;
         this._defaultValAsString = this._ValAsString(this._defaultVal);
-
 
         this.state = new CollabMap(
             this._KeyAsString, this._KeyFromString, 
@@ -102,53 +83,30 @@ const BaseCollab = class {
             this._defaultVal, this._defaultValAsString
             );
 
-
         this.derivedState = {};
 
-        this._derivedStateUpdaters = [];
-
-        if (shouldAddSortedKeysToDerivedState) {
-
-            this.derivedState.sortedKeys = new CollabTree(
-                this._KeyToString, this._KeyFromString
-                );
-            this._derivedStateUpdaters.push(updateSortedKeys);
-
-        }
-
-        if (updateDerivedState) {
-            assert(updateDerivedState instanceof Function);
-            this._derivedStateUpdaters.push(updateDerivedState);            
-        }
-
-
-        this._currentVersion = firstVersion;
-
+        assert(updateDerivedState instanceof Function);
+        this._updateDerivedState = updateDerivedState;
 
         assert(TransactionAsChanges instanceof Function);
         this._TransactionAsChanges = TransactionAsChanges;
 
-
-        if (storagePath || storagePath === ``) {
-            this._storage = new CollabStorage({
-                path: storagePath, 
-                defaultValAsString: this._defaultValAsString,
-                });
-            assert(this._storage.AllChanges instanceof Function);
-            assert(this._storage.addChangeToWriteQueue instanceof Function);
+        if (CollabStorage !== undefined) {
+            if (storagePath !== undefined) {
+                this._storage = new CollabStorage({
+                    path: storagePath, 
+                    defaultValAsString: this._defaultValAsString,
+                    });
+                assert(this._storage.AllChanges instanceof Function);
+                assert(this._storage.addChangeToWriteQueue instanceof Function);            
+            }
         }
 
-
-    }
-
-    _VersionOfKeyAsString (keyAsString) {
-        const version = this._keyAsStringVersions.get(keyAsString);
-        return version === undefined? firstVersion : version;
     }
 
     _readStorage () {
 
-        if (this._storage) {
+        if (this._storage !== undefined) {
 
             const changes = this._storage.AllChanges();
 
@@ -176,24 +134,17 @@ const BaseCollab = class {
     }
 
     _handleClientChange (clientChange) {
-        //TODO process clientChanges as **a transaction and its context**
-        // for optimal conflict resolution via HasChanged, make sure to filter 
-        // changes that don't actually affect the value (i.e. that set it to 
-        // what it already is)
+        //TODO process clientChanges as transactions
     }
 
     _handleChange (change) {
 
         this.state._handleChange(change);
 
-        this._keyAsStringVersions.set(change.keyAsString, change._version);
-
-        for (let i=0; i<this._derivedStateUpdaters.length; i++) {
-            this._derivedStateUpdaters[i](change, this.state, this.derivedState);
-        }
+        this._updateDerivedState(change, this.state, this.derivedState);
 
         if (!change._isFromStorage) {
-            this._storage.addChangeToWriteQueue(change);
+            this._storage.addChangeToWriteQueue([change]);
         }
 
     }
@@ -201,7 +152,7 @@ const BaseCollab = class {
 };
 
 
-const BaseCollabMap = class {
+const CollabMapBase = class {
 
     constructor (KeyAsString, KeyFromString, ValAsString, ValFromString, 
                  defaultVal, defaultValAsString) {
@@ -230,6 +181,11 @@ const BaseCollabMap = class {
         //^ ValOfKeyAsString should be implemented in a child class
     }
 
+    ValAsStringOf (key) {
+        return this.ValAsStringOfKeyAsString(this.KeyAsString(key));
+        //^ ValAsStringOfKeyAsString should be implemented in a child class
+    }
+
     KeysAsStrings () {
         return this._map.keys();
     }
@@ -248,4 +204,82 @@ const BaseCollabMap = class {
 
 };
 
-export {BaseCollab, BaseCollabMap};
+const CollabMapThatStoresValsAsStrings = class extends CollabMapBase {
+
+    ValOfKeyAsString (keyAsString) {
+
+        const valAsString = this._map.get(keyAsString);
+        return (
+            valAsString === undefined? 
+            this.defaultVal : this.ValFromString(valAsString)
+            );
+
+    }
+
+    ValAsStringOfKeyAsString (keyAsString) {
+
+        const valAsString = this._map.get(keyAsString);
+        return (
+            valAsString === undefined? 
+            this.defaultValAsString : valAsString
+            );
+
+    }
+
+    _handleChange (change) {
+
+        if (change.valAsString === this.defaultValAsString) {
+            this._map.delete(change.keyAsString);
+        }
+        else {
+            this._map.set(change.keyAsString, change.valAsString);
+        }
+
+    }
+
+};
+
+const CollabMapThatStoresVals = class extends CollabMapBase {
+
+    ValOfKeyAsString (keyAsString) {
+
+        const val = this._map.get(keyAsString);
+        return (
+            val === undefined? 
+            this.defaultVal : val
+            );
+
+    }
+
+    ValAsStringOfKeyAsString (keyAsString) {
+
+        const val = this._map.get(keyAsString);
+        return (
+            val === undefined? 
+            this.defaultValAsString : this.ValAsString(val)
+            );
+
+    }
+
+    _handleChange (change) {
+
+        if (change.valAsString === this.defaultValAsString) {
+            this._map.delete(change.keyAsString);
+        }
+        else {
+            this._map.set(change.keyAsString, change.val);
+        }
+
+    }
+
+};
+
+const firstVersion = 0;
+
+const ClassFactory = (Class) => (...args) => new Class(...args);
+
+Object.assign(
+    module.exports, 
+    {assert, CollabBase, CollabMapThatStoresValsAsStrings, 
+     CollabMapThatStoresVals, firstVersion, ClassFactory},
+    );
