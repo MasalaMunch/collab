@@ -1,45 +1,70 @@
 "use strict";
 
-const {assert, CollabBase, CollabMapThatStoresVals, firstVersion, 
-       ClassFactory} = require(`@masalamunch/collab-utils`);
+const EscapedForRegExp = require('escape-string-regexp');
 
-const EscapedForRegExp = (string) => {
-    return string.replace(/[.*+\-?^${}()|[\]\\]/g, '\\$&'); 
-    //SRC^ https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide/Regular_Expressions#Escaping
+const {assert, CollabBase, CollabStateBase, firstVersion, ClassFactory, doNothing,
+       Queue} = require(`@masalamunch/collab-utils`);
+
+const CollabStateThatStoresVals = class extends CollabStateBase {
+
+    ValOfKeyAsString (keyAsString) {
+
+        const val = this._map.get(keyAsString);
+        return (
+            val === undefined? 
+            this.defaultVal : val
+            );
+
+    }
+
+    ValAsStringOfKeyAsString (keyAsString) {
+
+        const val = this._map.get(keyAsString);
+        return (
+            val === undefined? 
+            this.defaultValAsString : this.ValAsString(val)
+            );
+
+    }
+
+    _writeChange (change) {
+
+        if (change.valAsString === this.defaultValAsString) {
+            this._map.delete(change.keyAsString);
+        }
+        else {
+            this._map.set(change.keyAsString, change.val);
+        }
+
+    }
+
 };
 
 const JSONparse = JSON.parse;
 
 const JSONstringify = JSON.stringify;
 
-const CollabStorageViaLocalStorage = class {
+const CollabClientStorageViaLocalStorage = class extends CollabStorageBase {
 
-    constructor ({path, defaultValAsString}) {
+    constructor ({prefix}) {
 
-        const prefix = path + `/`;
         this._versionKey = prefix + `v`;
         this._dataPrefix = prefix + `d/`;
-        //TODO support writing transactions
-
-        this._defaultValAsString = defaultValAsString;
+        //TODO support writing intents
 
     }
 
-    Version () {
-        const storedVersion = localStorage.getItem(this._versionKey);
-        return storedVersion === null? firstVersion : Number(storedVersion);
-    }
-
-    AllChanges () {
+    ChangesAndVersion () {
 
         let i;
         let key;
-        const dataPrefixRegExp = new RegExp(
-            `^` + EscapedForRegExp(this._dataPrefix)
-            );
+        const dataPrefixRegExp = new RegExp(`^`+EscapedForRegExp(this._dataPrefix));
         let item;
         let valAsString;
-        const version = this.Version();
+        const version = (
+            localStorage.getItem(this._versionKey) === null? 
+            firstVersion : Number(localStorage.getItem(this._versionKey))
+            );
         const defaultValAsString = this._defaultValAsString;
         const changes = [];
         const dataPrefixLength = this._dataPrefix.length;
@@ -68,11 +93,11 @@ const CollabStorageViaLocalStorage = class {
 
         }
 
-        return changes;
+        return [changes, version];
 
     }
 
-    addAtomizedChangesToWriteQueue (changes, version) {
+    atomicallyAddChangesAndVersionToWriteQueue (changes, version) {
 
         let i;
         const changeCount = changes.length;
@@ -102,41 +127,39 @@ const CollabClient = class extends CollabBase {
 
     constructor (config) {
 
-        defIn(config, {CollabMap: CollabClientMap});
+        if (config.CollabState === undefined) {
+            config.CollabState = CollabStateThatStoresVals;
+        }
+
+        if (config.collabClientStorage === undefined) {
+
+            if (config.localStoragePrefix !== undefined) {
+
+                config.collabClientStorage = (
+                    new CollabClientStorageViaLocalStorage({
+                        prefix: config.localStoragePrefix,
+                        })
+                    );
+
+            }
+
+        }
+
+        config.collabStorage = config.collabClientStorage;
+
         super(config);
 
-        const {handleChange, ReversedTransaction} = config;
-
-        if (handleChange) {
-            assert(handleChange instanceof Function);
-            this._handleChange = handleChange;
-        }
-
-        if (ReversedTransaction) {
-            assert(ReversedTransaction instanceof Function);
-            this._ReversedTransaction = ReversedTransaction;
-        }
-
-        this._readStorage();
-
+        this._serverProcessId = undefined;
 
     }
 
-    do (transaction) {
-
-
+    do (intent) {
 
     }
 
-    undo () {
+    _writeChangeToMemory (change) {
 
-
-
-    }
-
-    redo () {
-
-
+        
 
     }
 
