@@ -8,5 +8,4 @@ module.exports = {
     CollabStateBase: require(`./CollabStateBase.js`),
     AsJson: require(`./AsJson.js`),
     FromJson: require(`./FromJson.js`),
-    //TODO^ propagate these across the code
     };

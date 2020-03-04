@@ -81,6 +81,7 @@ const CollabClientStorageViaLocalStorage = class extends CollabStorageBase {
 
                 if (valAsString === defaultValAsString) {
                     localStorage.removeItem(valAsString);
+                    //TODO don't modify localStorage while iterating
                 }
                 else {                
                     changes.push({
@@ -120,8 +121,6 @@ const CollabClientStorageViaLocalStorage = class extends CollabStorageBase {
     }
 
 };
-
-//TODO serverProcessId stuff
 
 const CollabClient = class extends CollabBase {
 
