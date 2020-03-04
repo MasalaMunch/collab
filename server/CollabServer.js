@@ -107,7 +107,7 @@ module.exports = class extends Collab {
         let version;
         let changesForSync;
 
-        if (processId === clientInput[0]) {
+        if (clientInput[0] === processId) {
 
             version = clientInput[1];
 

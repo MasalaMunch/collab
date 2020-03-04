@@ -4,15 +4,21 @@ const CollabServer = require(`./CollabServer.js`);
 
 module.exports = class {
 
-    constructor (baseConfig) {
-        this._baseConfig = baseConfig;
+    constructor (collabConfig) {
+
+        this._collabConfig = collabConfig;
+        
     }
 
-    Server (serverConfig) {
+    Server (collabServerConfig) {
+
         const config = {};
-        Object.assign(config, this._baseConfig);
-        Object.assign(config, serverConfig);
+
+        Object.assign(config, this._collabConfig);
+        Object.assign(config, collabServerConfig);
+
         return new CollabServer(config);
+
     }
 
 };
