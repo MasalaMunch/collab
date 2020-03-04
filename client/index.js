@@ -40,9 +40,9 @@ const CollabStateThatStoresVals = class extends CollabStateBase {
 
 };
 
-const JSONparse = JSON.parse;
+const FromJson = JSON.parse;
 
-const JSONstringify = JSON.stringify;
+const AsJson = JSON.stringify;
 
 const CollabClientStorageViaLocalStorage = class extends CollabStorageBase {
 
@@ -75,7 +75,7 @@ const CollabClientStorageViaLocalStorage = class extends CollabStorageBase {
 
             if (dataPrefixRegExp.test(key)) {
 
-                item = JSONparse(localStorage.getItem(key));
+                item = FromJson(localStorage.getItem(key));
                 valAsString = item[1] > version? item[0] : item[2];
                 //^ item contains [oldValAsString, version, valAsString]
 
@@ -110,7 +110,7 @@ const CollabClientStorageViaLocalStorage = class extends CollabStorageBase {
 
             localStorage.setItem(
                 dataPrefix + c.keyAsString, 
-                JSONstringify([c.oldValAsString, version, c.valAsString]),
+                AsJson([c.oldValAsString, version, c.valAsString]),
                 );
 
         }

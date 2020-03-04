@@ -22,8 +22,8 @@ module.exports = class {
                   ValAsString=AsJsonWithSortedKeys,
                   ValFromString=FromJson,
                   IntentAsString=AsJson,
-                  IntentFromString=FromJson,
-                  handleChange=doNothing}) {
+                  // handleChange=doNothing,
+                  IntentFromString=FromJson}) {
 
         assert(KeyAsString instanceof Function);
         this._KeyAsString = KeyAsString;
@@ -60,8 +60,8 @@ module.exports = class {
         assert(updateDerivedState instanceof Function);
         this._updateDerivedState = updateDerivedState;
 
-        assert(handleChange instanceof Function);
-        this._broadcastChange = handleChange;
+        // assert(handleChange instanceof Function);
+        // this._handleChange = handleChange;
 
         assert(IntentAsChanges instanceof Function);
         this._IntentAsChanges = IntentAsChanges;
@@ -78,9 +78,8 @@ module.exports = class {
 
         const state = this.state;
         state._writeChange(change);
-        const derivedState = this.derivedState;
-        this._updateDerivedState(change, state, derivedState);
-        this._broadcastChange(change, state, derivedState);
+        this._updateDerivedState(change, state, this.derivedState);
+        // this._handleChange(change, state, derivedState);
 
     }
 
@@ -100,7 +99,7 @@ module.exports = class {
         const keyAsString = this._KeyAsString(intentChange.key);
 
         if (!IsString(keyAsString)) {
-            throw new TypeError(`KeyAsString didn't return a string`);
+            throw new TypeError(`KeyAsString must return a string`);
         }
 
         intentChange.keyAsString = keyAsString;
@@ -108,7 +107,7 @@ module.exports = class {
         const valAsString = this._ValAsString(intentChange.val);
 
         if (!IsString(valAsString)) {
-            throw new TypeError(`ValAsString didn't return a string`);
+            throw new TypeError(`ValAsString must return a string`);
         }
 
         intentChange.valAsString = valAsString;

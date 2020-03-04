@@ -15,12 +15,30 @@ module.exports = class {
 
     }
 
+    Size () {
+        return this._map.size;
+    }
+
     HasKeyAsString (keyAsString) {
         return this._map.has(keyAsString);
     }
 
     Has (key) {
-        return this.HasKeyAsString(this.KeyAsString(key));
+        return this._map.has(this.KeyAsString(key));
+    }
+
+    KeysAsStrings () {
+        return this._map.keys();
+    }
+
+    *Keys () {
+
+        const KeyFromString = this.KeyFromString;
+
+        for (const keyAsString of this._map.keys()) {
+            yield KeyFromString(keyAsString);
+        }
+        
     }
 
     ValOf (key) {
@@ -31,20 +49,6 @@ module.exports = class {
     ValAsStringOf (key) {
         return this.ValAsStringOfKeyAsString(this.KeyAsString(key));
         //^ ValAsStringOfKeyAsString should be implemented in a child class
-    }
-
-    KeysAsStrings () {
-        return this._map.keys();
-    }
-
-    *Keys () {
-        for (const keyAsString of this.KeysAsStrings()) {
-            yield this.KeyFromString(keyAsString);
-        }
-    }
-
-    Size () {
-        return this._map.size;
     }
 
 };

@@ -24,32 +24,32 @@ module.exports = class extends Collab {
 
         super(config);
 
-        this._processId = Math.random();
+        let {collabServerStorage, storagePath} = config;
 
-        this._keyAsStringVersions = new Map();
-        this._versionKeyAsStrings = new Map();
+        if (collabServerStorage === undefined) {
 
-        this._versionTree = new RbTree(VersionComparison);
-        this._deletionVersionTree = new RbTree(VersionComparison);
+            if (storagePath !== undefined) {
 
-        this._currentVersion = firstVersion;
-
-        if (config.collabServerStorage === undefined) {
-
-            if (config.storagePath !== undefined) {
-
-                config.collabServerStorage = (
-                    new CollabServerStorageViaLogFile({
-                        path: config.storagePath,
-                        defaultValAsString: this._defaultValAsString,
-                        })
-                    );
+                collabServerStorage = new CollabServerStorage({
+                    path: config.storagePath,
+                    defaultValAsString: this._defaultValAsString,
+                    });
 
             }
 
         }
 
-        this._storage = config.collabServerStorage;
+        this._storage = collabServerStorage;
+
+        this._processId = Math.random();
+
+        this._keyAsStringVersions = new Map();
+        this._versionKeysAsStrings = new Map();
+
+        this._versionTree = new RbTree(VersionComparison);
+        this._deletionVersionTree = new RbTree(VersionComparison);
+
+        this._currentVersion = firstVersion;
 
         if (this._storage !== undefined) {
 
@@ -74,9 +74,10 @@ module.exports = class extends Collab {
             return; // speeds up the common case
         }
 
-        const output = [];
+        const changesForSync = [];
+        let changeCount = 0;
 
-        const versionKeyAsStrings = this._versionKeyAsStrings;
+        const versionKeysAsStrings = this._versionKeysAsStrings;
         const state = this.state;
 
         let version = iterator.data();
@@ -84,84 +85,54 @@ module.exports = class extends Collab {
 
         do {
 
-            keyAsString = versionKeyAsStrings.get(version);
-            output.push([keyAsString, state.ValAsStringOfKeyAsString(keyAsString)]);
+            keyAsString = versionKeysAsStrings.get(version);
+            changesForSync[changeCount++] = [
+                keyAsString, 
+                state.ValAsStringOfKeyAsString(keyAsString),
+                ];
 
         } while ((version = iterator.next()) !== null);
 
-        return output;
+        return changesForSync;
 
     }
 
-    //TODO only keep actions in memory, you'll avoid adding a lot of of complex 
-    //     code, and the only cost a feature that no one will miss
-    //     (undo/redo that persists on page reload)
+    sync (clientInputAsJson) {
 
-    _doClientIntentsAsStrings (intentsAsStrings) {
-
-        if (IsArray(intentsAsStrings)) {
-            throw new TypeError(`IntentAsStrings isn't an array`);
-        }
-
-        let i;
-        const intentCount = intentsAsStrings.length;
-        let ias;
-        const IntentFromString = this._IntentFromString;
-        const IntentAsChanges = this._IntentAsChanges;
-        const state = this.state;
-        const derivedState = this.derivedState;
-        let changes;
-        let changeCount;
-        let j;
-        let c;
-        const storage = this._storage;
-
-        for (i=0; i<intentCount; i++) {
-
-            ias = intentsAsStrings[i];
-            if (!IsString)
-            changes = this._IntentAsChanges(intentsAsStrings[i], state, derivedState);
-            changeCount = changes.length;
-
-            for (j=0; j<changeCount; j++) {
-
-                c = changes[i];
-                this._normalizeIntentChange(c);
-                this._writeChangeToMemory(c);
-
-            }
-
-            storage.atomicallyAddChangesToWriteQueue(changes);
-            //^ must do after the loop because the changes need to be normalized
-
-        }
-
-    }
-
-    sync (clientInput) {
+        const clientInput = FromJson(clientInputAsJson);
         
         //^ clientInput contains [serverProcessId, version, intentsAsStrings]
 
-        //TODO don't let the server get messed up by malformed (and possibly 
-        //     malicious) client input!!!
-
         const processId = this._processId;
-        let clientVersion;
+        let version;
         let changesForSync;
 
         if (processId === clientInput[0]) {
 
-            clientVersion = clientInput[1];
+            version = clientInput[1];
+
+            if (typeof version !== `number`) {
+
+                if (version === null) {
+                    version = Infinity;
+                }
+                else {
+                    throw new TypeError(`version must null or a number`);
+                    //^ json doesn't allow NaN so checking that its type is 
+                    //  number is sufficient
+                }
+
+            }
 
             changesForSync = this._VersionTreeChangesForSyncSince(
                 this._deletionVersionTree, 
-                clientVersion,
+                version,
                 );
 
         }
         else {
 
-            clientVersion = firstVersion;
+            version = firstVersion;
 
         }
 
@@ -169,35 +140,82 @@ module.exports = class extends Collab {
 
             changesForSync = this._VersionTreeChangesForSyncSince(
                 this._versionTree, 
-                clientVersion,
+                version,
                 );
 
         }
         else {
 
             let i;
-            const additionalChanges = this._VersionTreeChangesForSyncSince(
+            const moreChangesForSync = this._VersionTreeChangesForSyncSince(
                 this._versionTree, 
-                clientVersion,
+                version,
                 );
+            let changeCount = changesForSync.length;
 
-            for (i=additionalChanges.length-1; i>=0; i--) {
+            for (i=moreChangesForSync.length-1; i>=0; i--) {
             //^ reverse iteration is fine since trees don't contain overwritten 
             //  changes
 
-                changesForSync.push(additionalChanges[i]);
+                changesForSync[changeCount++] = moreChangesForSync[i];
 
             }
 
         }
 
+        //^ get the changes that've happened since the client last synced
+
         if (clientInput[2] !== null) { // speeds up the common case
 
-            this._doClientIntentsAsStrings(clientInput[2]);
+            let i;
+            const intentsAsStrings = clientInput[2];
+            const intentCount = intentsAsStrings.length;
+            if (typeof intentCount !== `number`) {
+                throw new TypeError(`intentsAsStrings.length must be a number`);
+            }
+            //^ otherwise a client could pass in {length: `Infinity`} and force
+            //  the server into an infinite loop (json doesn't allow Infinity so 
+            //  checking that its type is number is sufficient)
+            let ias;
+            let changes;
+            const IntentAsChanges = this._IntentAsChanges;
+            const IntentFromString = this._IntentFromString;
+            const state = this.state;
+            const derivedState = this.derivedState;
+            let changeCount;
+            const storage = this._storage;
+
+            for (i=0; i<intentCount; i++) {
+
+                ias = intentsAsStrings[i];
+                if (typeof ias !== `string`) {
+                    throw new TypeError(`intentAsString must be a string`);
+                }
+
+                changes = IntentAsChanges(
+                    IntentFromString(ias), state, derivedState
+                    );
+                changeCount = changes.length;
+
+                for (j=0; j<changeCount; j++) {
+
+                    c = changes[i];
+                    this._normalizeIntentChange(c);
+                    this._writeChangeToMemory(c);
+
+                }
+
+                storage.atomicallyAddChangesToWriteQueue(changes);
+                //^ must do after the loop because the changes need to be 
+                //  normalized
+
+            }
 
         }
 
-        return [processId, this._currentVersion, changesForSync];
+        //^ do the client's intents
+
+        return AsJson([processId, this._currentVersion, changesForSync]);
 
     }
 
@@ -207,13 +225,13 @@ module.exports = class extends Collab {
 
         const keyAsString = change.keyAsString;
         const keyAsStringVersions = keyAsStringVersions;
-        const versionKeyAsStrings = this._versionKeyAsStrings;
+        const versionKeysAsStrings = this._versionKeysAsStrings;
         const defaultValAsString = defaultValAsString;
         const oldVersion = keyAsStringVersions.get(keyAsString);
 
         if (oldVersion !== undefined) {
 
-            versionKeyAsStrings.delete(oldVersion);
+            versionKeysAsStrings.delete(oldVersion);
 
             if (change.oldValAsString === defaultValAsString) {
 
@@ -232,7 +250,7 @@ module.exports = class extends Collab {
 
         keyAsStringVersions.set(keyAsString, newVersion);
 
-        versionKeyAsStrings.set(newVersion, keyAsString);
+        versionKeysAsStrings.set(newVersion, keyAsString);
 
         if (change.valAsString === defaultValAsString) {
 

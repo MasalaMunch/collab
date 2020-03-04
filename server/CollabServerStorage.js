@@ -5,7 +5,7 @@ const JoinedPaths = require(`path`).join;
 
 const exitProcessDueToAnError = () => process.exit(1);
 
-const JSONstringify = JSON.stringify;
+const {AsJson, FromJson} = require(`@masalamunch/collab-utils`);
 
 const separatorChar = `\n`;
 
@@ -28,7 +28,7 @@ module.exports = class {
 
     Changes () {
 
-        const logStrings = (
+        const logJsons = (
             fs.readFileSync(this._logFilePath, {encoding})
             .split(separatorChar)
             );
@@ -37,10 +37,10 @@ module.exports = class {
 
         const changesAsArrays = [];
 
-        for (let i=logStrings.length-2; i>=0; i--) {
+        for (let i=logJsons.length-2; i>=0; i--) {
         //^ -2 instead of -1 because the last line should be blank
 
-            const log = JSON.parse(logStrings[i]);
+            const log = FromJson(logJsons[i]);
 
             for (let j=log.length-1; j>=0; j--) {
 
@@ -68,7 +68,7 @@ module.exports = class {
 
         fs.writeFileSync(
             this._logFilePath, 
-            JSON.stringify(changesAsArrays) + separatorChar,
+            AsJson(changesAsArrays) + separatorChar,
             {encoding},
             );
 
@@ -86,7 +86,7 @@ module.exports = class {
         let i;
         const changeCount = changes.length;
         let c;
-        const changesAsArrays = new Array(changes.length);
+        const changesAsArrays = [];
 
         for (i=0; i<changeCount; i++) {
 
@@ -96,7 +96,7 @@ module.exports = class {
         }
 
         const logFileAppendStream = this._logFileAppendStream;
-        logFileAppendStream.write(JSONstringify(changesAsArrays));
+        logFileAppendStream.write(AsJson(changesAsArrays));
         logFileAppendStream.write(separatorChar);
 
     }
