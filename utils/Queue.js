@@ -34,22 +34,6 @@ const Queue = class {
 
     }
 
-    popOldestItem () { 
-
-        const item = this._firstNode[0];
-
-        this._firstNode = this._firstNode[1];
-
-        if (this._firstNode === undefined) {
-
-            this._lastNode = undefined;
-            
-        }
-
-        return item;
-
-    }
-
     deleteOldestItem () { 
 
         this._firstNode = this._firstNode[1];

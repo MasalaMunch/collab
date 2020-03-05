@@ -70,7 +70,7 @@ module.exports = class {
 
         assert(
             typeof rememberThisManyChanges === `number` 
-            && !isNaN(rememberThisManyChanges)
+            && rememberThisManyChanges >= 0
             );
         this._rememberThisManyChanges = rememberThisManyChanges;
         this._changeCount = 0;
@@ -87,44 +87,29 @@ module.exports = class {
         //^ _writeIntentsAndReturnTheirChanges should be implemented in a child 
         //  class
 
+        this._changeCount += changes.length + emptyChangeSizeApproximation;
+
         const action = this._nextAction++;
 
-        const rememberThisManyChanges = this._rememberThisManyChanges;
-        
-        if (rememberThisManyChanges > 0) {
+        this._actionQueue.add(action);
+        this._actionChanges.set(action, changes);
+        this._actionIntents.set(action, intent);
 
-            let changeCount = this._changeCount;
+        while (this._changeCount > this._rememberThisManyChanges) {
+        //^ don't need to check if actionQueue is empty because that would imply
+        //  that changeCount is 0, which would make the while condition false
+        //  because rememberThisManyChanges is not negative
 
-            changeCount += changes.length + emptyChangeSizeApproximation;
+            const forgetThisAction = this._actionQueue.OldestItem();
 
-            const actionQueue = this._actionQueue;
-            const actionChanges = this._actionChanges;
-            const actionIntents = this._actionIntents;
+            this._changeCount -= (
+                this._actionChanges.get(forgetThisAction).length 
+                + emptyChangeSizeApproximation
+                );
 
-            actionQueue.add(action);
-            actionChanges.set(action, changes);
-            actionIntents.set(action, intent);
-
-            let forgetThisAction;
-
-            while (changeCount > rememberThisManyChanges) {
-            //^ don't need to check if actionQueue is empty because that would 
-            //  imply that changeCount is 0, which would make the while 
-            //  condition false because rememberThisManyChanges is positive
-
-                forgetThisAction = actionQueue.popOldestItem();
-
-                changeCount -= (
-                    actionChanges.get(forgetThisAction).length 
-                    + emptyChangeSizeApproximation
-                    );
-
-                actionChanges.delete(forgetThisAction);
-                actionIntents.delete(forgetThisAction);
-
-            }
-
-            this._changeCount = changeCount;
+            this._actionQueue.deleteOldestItem();
+            this._actionChanges.delete(forgetThisAction);
+            this._actionIntents.delete(forgetThisAction);
 
         }
             
