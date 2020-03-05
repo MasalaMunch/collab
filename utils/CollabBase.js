@@ -84,8 +84,6 @@ module.exports = class {
     do (intent) {
 
         const changes = this._writeIntentsAndReturnTheirChanges([intent])[0];
-        //^ _writeIntentsAndReturnTheirChanges should be implemented in a child 
-        //  class
 
         this._changeCount += changes.length + emptyChangeSizeApproximation;
 
@@ -117,15 +115,15 @@ module.exports = class {
 
     }
 
-    _writeIntentsToMemoryAndReturnTheirChanges (intents) {
+    _writeIntentsAndReturnTheirChanges (intents) {
 
         let i;
         const intentCount = intents.length;
+        let n;
         let changes;
         const IntentAsChanges = this._IntentAsChanges;
         const state = this.state;
         const derivedState = this.derivedState;
-        const intentChanges = [];
         let changeCount;
         let j;
         let c;
@@ -133,11 +131,12 @@ module.exports = class {
         const KeyAsString = this._KeyAsString;
         let valAsString;
         const ValAsString = this._ValAsString;
+        const intentChanges = [];
 
         for (i=0; i<intentCount; i++) {
 
-            changes = IntentAsChanges(intents[i], state, derivedState);
-            intentChanges[i] = changes;
+            n = intents[i];
+            changes = IntentAsChanges(n, state, derivedState);
             changeCount = changes.length;
 
             for (j=0; j<changeCount; j++) {
@@ -166,6 +165,11 @@ module.exports = class {
                 this._writeChangeToMemory(c);
 
             }
+
+            this._atomicallyAddIntentAndItsChangesToStorageWriteQueue(n, changes);
+            //^ should be implemented by child class
+
+            intentChanges[i] = changes;
 
         }
 

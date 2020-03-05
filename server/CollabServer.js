@@ -1,12 +1,12 @@
 "use strict";
 
-const IsString = require(`is-string`);
 const RbTree = require(`bintrees`).RBTree;
 
 const {assert, CollabBase} = require(`@masalamunch/collab-utils`);
 
-const CollabServerStorageViaLogFile = require(`./CollabServerStorageViaLogFile.js`);
 const CollabStateThatStoresValsAsStrings = require(`./CollabStateThatStoresValsAsStrings.js`);
+const CollabServerStorageViaLogFile = require(`./CollabServerStorageViaLogFile.js`);
+const DummyCollabServerStorage = require(`./DummyCollabServerStorage.js`);
 
 const VersionComparison = (a, b) => a - b;
 
@@ -26,7 +26,7 @@ module.exports = class extends CollabBase {
 
         if (collabServerStorage === undefined) {
 
-            if (storagePath !== undefined) {
+            if (storagePath === undefined) {
 
                 collabServerStorage = new CollabServerStorageViaLogFile({
                     path: config.storagePath,
@@ -34,18 +34,20 @@ module.exports = class extends CollabBase {
                     });
 
             }
+            else {
+
+                collabServerStorage = new DummyCollabServerStorage();
+                //TODO implement
+
+            }
 
         }
 
-        if (collabServerStorage !== undefined) {
-
-            assert(typeof collabServerStorage.Changes === `function`);
-            assert(
-                typeof collabServerStorage.atomicallyAddChangesToWriteQueue 
-                === `function`
-                );
-
-        }
+        assert(typeof collabServerStorage.Changes === `function`);
+        assert(
+            typeof collabServerStorage.atomicallyAddChangesToWriteQueue 
+            === `function`
+            );
 
         this._storage = collabServerStorage;
 
@@ -59,16 +61,12 @@ module.exports = class extends CollabBase {
 
         this._currentVersion = firstVersion;
 
-        if (this._storage !== undefined) {
+        const storageChanges = this._storage.Changes();
 
-            const storageChanges = this._storage.Changes();
+        for (let i=0; i<storageChanges.length; i++) {
 
-            for (let i=0; i<storageChanges.length; i++) {
-
-                this._normalizeStorageChange(storageChanges[i]);
-                this._writeChangeToMemory(storageChanges[i]);
-
-            }
+            this._normalizeStorageChange(storageChanges[i]);
+            this._writeChangeToMemory(storageChanges[i]);
 
         }
 
@@ -105,25 +103,9 @@ module.exports = class extends CollabBase {
 
     }
 
-    _writeIntentsAndReturnTheirChanges (intents) {
+    _atomicallyAddIntentAndItsChangesToStorageWriteQueue (intent, changes) {
 
-        const intentChanges = this._writeIntentsToMemoryAndReturnTheirChanges(intents);
-        const storage = this._storage;
-
-        if (storage !== undefined) {
-
-            let i;
-            const intentCount = intentChanges.length;
-
-            for (i=0; i<intentCount; i++) {
-
-                storage.atomicallyAddChangesToWriteQueue(intentChanges[i]);
-
-            }
-
-        }
-
-        return intentChanges;
+        this._storage.atomicallyAddChangesToWriteQueue(changes);
 
     }
 

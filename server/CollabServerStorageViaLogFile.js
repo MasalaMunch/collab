@@ -3,8 +3,6 @@
 const fs = require(`fs`);
 const JoinedPaths = require(`path`).join;
 
-const exitProcessDueToAnError = () => process.exit(1);
-
 const {AsJson, FromJson} = require(`@masalamunch/collab-utils`);
 
 const separatorChar = `\n`;
@@ -20,7 +18,6 @@ module.exports = class {
         this._logFileAppendStream = fs.createWriteStream(
             this._logFilePath, {flags: `a`, encoding}
             );
-        this._logFileAppendStream.on(`error`, exitProcessDueToAnError);
 
         this._defaultValAsString = defaultValAsString;
 
