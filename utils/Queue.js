@@ -11,13 +11,13 @@ const Queue = class {
         return this._firstNode === undefined;
     }
 
-    FirstItem () {
-        return this._firstNode.item;
+    OldestItem () {
+        return this._firstNode[0];
     }
 
-    append (item) {
+    add (item) {
 
-        const node = {item};
+        const node = [item, undefined];
 
         if (this._lastNode === undefined) {
 
@@ -27,16 +27,32 @@ const Queue = class {
         }
         else {
 
-            this._lastNode.nextNode = node;
+            this._lastNode[1] = node;
             this._lastNode = node;
 
         }
 
     }
 
-    deleteFirstItem (item) { 
+    popOldestItem () { 
 
-        this._firstNode = this._firstNode.nextNode;
+        const item = this._firstNode[0];
+
+        this._firstNode = this._firstNode[1];
+
+        if (this._firstNode === undefined) {
+
+            this._lastNode = undefined;
+            
+        }
+
+        return item;
+
+    }
+
+    deleteOldestItem () { 
+
+        this._firstNode = this._firstNode[1];
 
         if (this._firstNode === undefined) {
 

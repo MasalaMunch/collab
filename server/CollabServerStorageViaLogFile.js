@@ -22,6 +22,7 @@ module.exports = class {
             );
         this._logFileAppendStream.on(`error`, exitProcessDueToAnError);
 
+        assert(typeof defaultValAsString === `string`);
         this._defaultValAsString = defaultValAsString;
 
     }

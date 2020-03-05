@@ -1,4 +1,6 @@
-const CollabStateBase = require(`./CollabStateBase.js`);
+"use strict";
+
+const {CollabStateBase} = require(`@masalamunch/collab-utils`);
 
 module.exports = class extends CollabStateBase {
 
