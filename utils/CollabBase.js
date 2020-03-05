@@ -203,7 +203,8 @@ module.exports = class {
 
         const state = this.state;
         state._writeChange(change);
-        this._updateDerivedState(change, state, this.derivedState);
+        const derivedState = this.derivedState;
+        this._updateDerivedState(change, state, derivedState);
         this._handleChange(change, state, derivedState);
 
     }
