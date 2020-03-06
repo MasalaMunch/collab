@@ -83,7 +83,9 @@ module.exports = class {
 
     do (intent) {
 
-        const changes = this._writeIntentsAndReturnTheirChanges([intent])[0];
+        const changes = (
+            this._writeIntentsToStateAndStorageAndReturnTheirChanges([intent])[0]
+            );
 
         this._changeCount += changes.length + emptyChangeSizeApproximation;
 
@@ -115,7 +117,7 @@ module.exports = class {
 
     }
 
-    _writeIntentsAndReturnTheirChanges (intents) {
+    _writeIntentsToStateAndStorageAndReturnTheirChanges (intents) {
 
         let i;
         const intentCount = intents.length;
@@ -162,11 +164,11 @@ module.exports = class {
                 c.oldVal = state.ValOfKeyAsString(keyAsString);
                 c.oldValAsString = state.ValAsStringOfKeyAsString(keyAsString);
 
-                this._writeChangeToMemory(c);
+                this._writeChangeToState(c);
 
             }
 
-            this._atomicallyAddIntentAndItsChangesToStorageWriteQueue(n, changes);
+            this._atomicallyWriteIntentAndItsChangesToStorage(n, changes);
             //^ should be implemented by child class
 
             intentChanges[i] = changes;
@@ -188,7 +190,7 @@ module.exports = class {
 
     }
 
-    _writeChangeToMemory (change) {
+    _writeChangeToState (change) {
 
         const state = this.state;
         state._writeChange(change);

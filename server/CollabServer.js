@@ -45,7 +45,7 @@ module.exports = class extends CollabBase {
 
         assert(typeof collabServerStorage.Changes === `function`);
         assert(
-            typeof collabServerStorage.atomicallyAddChangesToWriteQueue 
+            typeof collabServerStorage.atomicallyWriteChanges 
             === `function`
             );
 
@@ -66,7 +66,7 @@ module.exports = class extends CollabBase {
         for (let i=0; i<storageChanges.length; i++) {
 
             this._normalizeStorageChange(storageChanges[i]);
-            this._writeChangeToMemory(storageChanges[i]);
+            this._writeChangeToState(storageChanges[i]);
 
         }
 
@@ -103,9 +103,9 @@ module.exports = class extends CollabBase {
 
     }
 
-    _atomicallyAddIntentAndItsChangesToStorageWriteQueue (intent, changes) {
+    _atomicallyWriteIntentAndItsChangesToStorage (intent, changes) {
 
-        this._storage.atomicallyAddChangesToWriteQueue(changes);
+        this._storage.atomicallyWriteChanges(changes);
 
     }
 
@@ -186,7 +186,9 @@ module.exports = class extends CollabBase {
 
             }
 
-            this._writeIntentsAndReturnTheirChanges(intentsAsStrings);
+            this._writeIntentsToStateAndStorageAndReturnTheirChanges(
+                intentsAsStrings
+                );
             
             //^ replace every entry in intentsAsStrings with its corresponding 
             //  intent, then write
@@ -199,9 +201,9 @@ module.exports = class extends CollabBase {
 
     }
 
-    _writeChangeToMemory (change) {
+    _writeChangeToState (change) {
 
-        super._writeChangeToMemory(change);
+        super._writeChangeToState(change);
 
         const keyAsString = change.keyAsString;
         const keyAsStringVersions = keyAsStringVersions;

@@ -6,7 +6,7 @@ module.exports = class {
         return [];
     }
 
-    atomicallyAddChangesToWriteQueue (changes) {
+    atomicallyWriteChanges (changes) {
     }
 
 }

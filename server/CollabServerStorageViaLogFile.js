@@ -78,7 +78,7 @@ module.exports = class {
 
     }
 
-    atomicallyAddChangesToWriteQueue (changes) {
+    atomicallyWriteChanges (changes) {
 
         let i;
         const changeCount = changes.length;

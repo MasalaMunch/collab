@@ -156,7 +156,7 @@ const CollabClient = class extends CollabBase {
 
     }
 
-    _writeChangeToMemory (change) {
+    _writeChangeToState (change) {
 
         
 
