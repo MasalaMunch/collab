@@ -2,7 +2,7 @@
 
 const RbTree = require(`bintrees`).RBTree;
 
-const {assert, CollabBase} = require(`@masalamunch/collab-utils`);
+const {assert, CollabBase, CollabError} = require(`@masalamunch/collab-utils`);
 
 const CollabStateThatStoresValsAsStrings = require(`./CollabStateThatStoresValsAsStrings.js`);
 const CollabServerStorageViaLogFile = require(`./CollabServerStorageViaLogFile.js`);
@@ -168,9 +168,11 @@ module.exports = class extends CollabBase {
             const intentsAsStrings = clientInput[2];
             const intentCount = intentsAsStrings.length;
             if (typeof intentCount !== `number`) {
-                throw new TypeError(`intentsAsStrings.length must be a number`);
+                throw new CollabError(
+                    new TypeError(`intentsAsStrings.length must be a number`)
+                    );
             }
-            //^ otherwise a client could pass in {length: `Infinity`} and force
+            //^ otherwise a client could pass in {length: "Infinity"} and force
             //  the server into an infinite loop (json doesn't allow Infinity so 
             //  checking that its type is number is sufficient)
             let ias;
@@ -180,9 +182,16 @@ module.exports = class extends CollabBase {
 
                 ias = intentsAsStrings[i];
                 if (typeof ias !== `string`) {
-                    throw new TypeError(`intentAsString must be a string`);
+                    throw new CollabError(
+                        new TypeError(`each item in intentsAsStrings must be a string`)
+                        );
                 }
-                intentsAsStrings[i] = IntentFromString(ias);
+                try {
+                    intentsAsStrings[i] = IntentFromString(ias);
+                }
+                catch (error) {
+                    throw new CollabError(error);
+                }
 
             }
 

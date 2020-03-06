@@ -5,14 +5,19 @@ const Queue = require(`./Queue.js`);
 const AsJson = require(`./AsJson.js`);
 const AsJsonWithSortedKeys = require(`./AsJsonWithSortedKeys.js`);
 const FromJson = require(`./FromJson.js`);
+const CollabError = require(`./CollabError.js`);
 
 const DefaultIntentAsChanges = (intent, state, derivedState) => intent;
 
 const doNothing = () => {};
 
-const emptyChangeSizeApproximation = 1;
+const emptyArraySizeApproximationInChanges = 1;
 
 module.exports = class {
+
+    static IsCollabError (error) {
+        return error instanceof CollabError;
+    }
 
     constructor ({CollabState,
                   rememberThisManyChanges=0,
@@ -87,7 +92,7 @@ module.exports = class {
             this._writeIntentsToStateAndStorageAndReturnTheirChanges([intent])[0]
             );
 
-        this._changeCount += changes.length + emptyChangeSizeApproximation;
+        this._changeCount += changes.length + emptyArraySizeApproximationInChanges;
 
         const action = this._nextAction++;
 
@@ -104,7 +109,7 @@ module.exports = class {
 
             this._changeCount -= (
                 this._actionChanges.get(forgetThisAction).length 
-                + emptyChangeSizeApproximation
+                + emptyArraySizeApproximationInChanges
                 );
 
             this._actionQueue.deleteOldestItem();
@@ -138,28 +143,48 @@ module.exports = class {
         for (i=0; i<intentCount; i++) {
 
             n = intents[i];
-            changes = IntentAsChanges(n, state, derivedState);
+            try {
+                changes = IntentAsChanges(n, state, derivedState);
+            } catch (error) {
+                throw new CollabError(error);
+            }
             changeCount = changes.length;
 
             for (j=0; j<changeCount; j++) {
 
                 c = changes[j];
 
-                keyAsString = KeyAsString(c.key);
-
-                if (typeof keyAsString !== `string`) {
-                    throw new TypeError(`KeyAsString must return a string`);
+                try {
+                    keyAsString = KeyAsString(c.key);
                 }
-
+                catch (error) {
+                    throw new CollabError(error);
+                }
+                if (typeof keyAsString !== `string`) {
+                    throw new CollabError(
+                        new TypeError(`KeyAsString must return a string`)
+                        );
+                }
                 c.keyAsString = keyAsString;
 
-                valAsString = ValAsString(c.val);
-
-                if (typeof valAsString !== `string`) {
-                    throw new TypeError(`ValAsString must return a string`);
+                try {
+                    valAsString = ValAsString(c.val);
                 }
-
+                catch (error) {
+                    throw new CollabError(error);
+                }
+                if (typeof valAsString !== `string`) {
+                    throw new CollabError(
+                        new TypeError(`ValAsString must return a string`)
+                        );
+                }
                 c.valAsString = valAsString;
+
+            }
+
+            for (j=0; j<changeCount; j++) {
+
+                c = changes[j];
 
                 c.oldVal = state.ValOfKeyAsString(keyAsString);
                 c.oldValAsString = state.ValAsStringOfKeyAsString(keyAsString);
@@ -169,7 +194,9 @@ module.exports = class {
             }
 
             this._atomicallyWriteIntentAndItsChangesToStorage(n, changes);
-            //^ should be implemented by child class
+            //^ should be implemented by child class, is called after the loops 
+            //  so that all changes will have keyAsString, valAsString, oldVal, 
+            //  and oldValAsString properties
 
             intentChanges[i] = changes;
 
