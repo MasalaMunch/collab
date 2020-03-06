@@ -178,7 +178,7 @@ module.exports = class extends CollabBase {
                 }
                 try {
                     intentsAsStrings[i] = IntentFromString(ias);
-                } catch (_) {
+                } catch (error) {
                     break;
                 }
 
