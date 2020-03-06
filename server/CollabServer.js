@@ -38,7 +38,6 @@ module.exports = class extends CollabBase {
             else {
 
                 collabServerStorage = new DummyCollabServerStorage();
-                //TODO implement
 
             }
 

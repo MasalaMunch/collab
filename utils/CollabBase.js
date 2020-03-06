@@ -78,6 +78,7 @@ module.exports = class {
         this._actionIntents = new Map();
         this._actionQueue = new Queue();
         this._nextAction = Number.MIN_SAFE_INTEGER;
+        //^ remember some local actions (useful for implementing undo-redo)
 
     }
 
