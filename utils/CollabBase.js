@@ -5,7 +5,6 @@ const Queue = require(`./Queue.js`);
 const AsJson = require(`./AsJson.js`);
 const AsJsonWithSortedKeys = require(`./AsJsonWithSortedKeys.js`);
 const FromJson = require(`./FromJson.js`);
-const CollabError = require(`./CollabError.js`);
 
 const DefaultIntentAsChanges = (intent, state, derivedState) => intent;
 
@@ -139,48 +138,29 @@ module.exports = class {
         for (i=0; i<intentCount; i++) {
 
             n = intents[i];
-            try {
-                changes = IntentAsChanges(n, state, derivedState);
-            } catch (error) {
-                throw new CollabError(error);
-            }
+            changes = IntentAsChanges(n, state, derivedState);
+
             changeCount = changes.length;
 
             for (j=0; j<changeCount; j++) {
 
                 c = changes[j];
 
-                try {
-                    keyAsString = KeyAsString(c.key);
-                }
-                catch (error) {
-                    throw new CollabError(error);
-                }
+                keyAsString = KeyAsString(c.key);
+
                 if (typeof keyAsString !== `string`) {
-                    throw new CollabError(
-                        new TypeError(`KeyAsString must return a string`)
-                        );
+                    throw new TypeError(`KeyAsString must return a string`);
                 }
+
                 c.keyAsString = keyAsString;
 
-                try {
-                    valAsString = ValAsString(c.val);
-                }
-                catch (error) {
-                    throw new CollabError(error);
-                }
+                valAsString = ValAsString(c.val);
+
                 if (typeof valAsString !== `string`) {
-                    throw new CollabError(
-                        new TypeError(`ValAsString must return a string`)
-                        );
+                    throw new TypeError(`ValAsString must return a string`);
                 }
+
                 c.valAsString = valAsString;
-
-            }
-
-            for (j=0; j<changeCount; j++) {
-
-                c = changes[j];
 
                 c.oldVal = state.ValOfKeyAsString(keyAsString);
                 c.oldValAsString = state.ValAsStringOfKeyAsString(keyAsString);
@@ -190,7 +170,7 @@ module.exports = class {
             }
 
             this._atomicallyWriteIntentAndItsChangesToStorage(n, changes);
-            //^ should be implemented by child class, is called after the loops 
+            //^ should be implemented by child class, is called after the loop 
             //  so that all changes will have keyAsString, valAsString, oldVal, 
             //  and oldValAsString properties
 

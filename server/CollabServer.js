@@ -2,11 +2,12 @@
 
 const RbTree = require(`bintrees`).RBTree;
 
-const {assert, CollabBase, CollabError} = require(`@masalamunch/collab-utils`);
+const {assert, CollabBase} = require(`@masalamunch/collab-utils`);
 
 const CollabStateThatStoresValsAsStrings = require(`./CollabStateThatStoresValsAsStrings.js`);
 const CollabServerStorageViaLogFile = require(`./CollabServerStorageViaLogFile.js`);
 const DummyCollabServerStorage = require(`./DummyCollabServerStorage.js`);
+const CollabError = require(`./CollabError.js`);
 
 const VersionComparison = (a, b) => a - b;
 
