@@ -2,6 +2,6 @@
 
 module.exports = (somethingTruthy) => {
     if (!somethingTruthy) {
-        throw `AssertionError`;
+        throw new Error(`an assertion failed`);
     }
 };
