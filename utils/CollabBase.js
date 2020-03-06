@@ -6,7 +6,38 @@ const AsJson = require(`./AsJson.js`);
 const AsJsonWithSortedKeys = require(`./AsJsonWithSortedKeys.js`);
 const FromJson = require(`./FromJson.js`);
 
-const DefaultIntentAsChanges = (intent, state, derivedState) => intent;
+const DefaultIntentAsChanges = (intent, state, derivedState) => {
+
+    if (intent === null) {
+        return [];
+    }
+
+    const changes = [];
+
+    for (let i=0; i<intent.length; i++) {
+
+        const c = intent[i];
+
+        if (c == null || c === undefined) {
+            return [];
+        }
+
+        if (typeof c.key !== `string`) {
+            return [];
+        }
+
+        if (!(c.val === null || typeof c.val === `string` 
+        || typeof c.val === `number` || typeof c.val === `boolean`)) {
+            return [];
+        }
+
+        changes.push(c);
+
+    }
+
+    return changes;
+
+};
 
 const doNothing = () => {};
 
