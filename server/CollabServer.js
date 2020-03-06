@@ -168,9 +168,7 @@ module.exports = class extends CollabBase {
             const intentsAsStrings = clientInput[2];
             const intentCount = intentsAsStrings.length;
             if (typeof intentCount !== `number`) {
-                throw new CollabError(
-                    new TypeError(`intentsAsStrings.length must be a number`)
-                    );
+                intentCount = 0;
             }
             //^ otherwise a client could pass in {length: "Infinity"} and force
             //  the server into an infinite loop (json doesn't allow Infinity so 
@@ -182,15 +180,13 @@ module.exports = class extends CollabBase {
 
                 ias = intentsAsStrings[i];
                 if (typeof ias !== `string`) {
-                    throw new CollabError(
-                        new TypeError(`each item in intentsAsStrings must be a string`)
-                        );
+                    continue;
                 }
                 try {
                     intentsAsStrings[i] = IntentFromString(ias);
                 }
                 catch (error) {
-                    throw new CollabError(error);
+                    continue;
                 }
 
             }
