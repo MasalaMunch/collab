@@ -167,12 +167,6 @@ module.exports = class extends CollabBase {
             let i;
             const intentsAsStrings = clientInput[2];
             const intentCount = intentsAsStrings.length;
-            if (typeof intentCount !== `number`) {
-                intentCount = -1;
-            }
-            //^ otherwise a client could pass in {length: "Infinity"} and force
-            //  the server into an infinite loop (json doesn't allow Infinity so 
-            //  checking that its type is number is sufficient)
             let ias;
             const IntentFromString = this._IntentFromString;
 
@@ -191,13 +185,11 @@ module.exports = class extends CollabBase {
 
             }
 
-            if (i === intentCount) { 
-            //^ if intentCount isn't -1 and the loop didn't break, i.e., if 
-            //  client input passed all validity checks
+            if (i === intentCount) { // if the loop didn't break
 
                 this._writeIntentsToStateAndStorageAndReturnTheirChanges(
                     intentsAsStrings
-                    ); 
+                    );
 
             }
             
