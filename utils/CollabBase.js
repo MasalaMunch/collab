@@ -15,10 +15,6 @@ const emptyArraySizeApproximationInChanges = 1;
 
 module.exports = class {
 
-    static IsCollabError (error) {
-        return error instanceof CollabError;
-    }
-
     constructor ({CollabState,
                   rememberThisManyChanges=0,
                   IntentAsChanges=DefaultIntentAsChanges, 
