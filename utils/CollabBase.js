@@ -5,39 +5,9 @@ const Queue = require(`./Queue.js`);
 const AsJson = require(`./AsJson.js`);
 const AsJsonWithSortedKeys = require(`./AsJsonWithSortedKeys.js`);
 const FromJson = require(`./FromJson.js`);
+const rejectBadInput = require(`./rejectBadInput.js`);
 
-const DefaultIntentAsChanges = (intent, state, derivedState) => {
-
-    if (intent === null) {
-        return [];
-    }
-
-    const changes = [];
-
-    for (let i=0; i<intent.length; i++) {
-
-        const c = intent[i];
-
-        if (c == null || c === undefined) {
-            return [];
-        }
-
-        if (typeof c.key !== `string`) {
-            return [];
-        }
-
-        if (!(c.val === null || typeof c.val === `string` 
-        || typeof c.val === `number` || typeof c.val === `boolean`)) {
-            return [];
-        }
-
-        changes.push(c);
-
-    }
-
-    return changes;
-
-};
+const DefaultIntentAsChanges = (intent, state, derivedState) => intent;
 
 const doNothing = () => {};
 
@@ -163,36 +133,84 @@ module.exports = class {
         let c;
         let keyAsString;
         const KeyAsString = this._KeyAsString;
+        const KeyFromString = this._KeyFromString;
         let valAsString;
         const ValAsString = this._ValAsString;
+        const ValFromString = this._ValFromString;
         const intentChanges = [];
 
         for (i=0; i<intentCount; i++) {
 
             n = intents[i];
-            changes = IntentAsChanges(n, state, derivedState);
-
-            changeCount = changes.length;
+            try {
+                changes = IntentAsChanges(n, state, derivedState);
+            } catch (error) {
+                rejectBadInput(error);
+            }
+            try {
+                changeCount = changes.length;
+            } catch (error) {
+                rejectBadInput(error);
+            }
 
             for (j=0; j<changeCount; j++) {
 
                 c = changes[j];
 
-                keyAsString = KeyAsString(c.key);
-
-                if (typeof keyAsString !== `string`) {
-                    throw new TypeError(`KeyAsString must return a string`);
+                try {
+                    keyAsString = KeyAsString(c.key);
                 }
-
+                catch (error) {
+                    rejectBadInput(error);
+                }
+                if (typeof keyAsString !== `string`) {
+                    rejectBadInput(new TypeError(
+                        `KeyAsString didn't return a string`
+                        ));
+                }
                 c.keyAsString = keyAsString;
 
-                valAsString = ValAsString(c.val);
-
+                try {
+                    valAsString = ValAsString(c.val);
+                }
+                catch (error) {
+                    rejectBadInput(error);
+                }
                 if (typeof valAsString !== `string`) {
-                    throw new TypeError(`ValAsString must return a string`);
+                    rejectBadInput(new TypeError(
+                        `ValAsString didn't return a string`
+                        ));
+                }
+                c.valAsString = valAsString;
+
+                //^ fill in string versions of key and val
+
+                try {
+                    c.key = KeyFromString(keyAsString);
+                }
+                catch (error) {
+                    rejectBadInput(error);
                 }
 
-                c.valAsString = valAsString;
+                try {
+                    c.val = ValFromString(valAsString);
+                }
+                catch (error) {
+                    rejectBadInput(error);
+                }
+
+                //^ ensures that both the doer of the intent and others who 
+                //  receive the intent's changes will process the same key and 
+                //  val in their _writeChangeToState functions - in a perfect 
+                //  world this wouldn't be necessary, but it's here because it 
+                //  makes it impossible to introduce certain tricky-to-debug 
+                //  bugs, and therefore makes collab more developer-friendly
+
+            }
+
+            for (j=0; j<changeCount; j++) {
+
+                c = changes[j];
 
                 c.oldVal = state.ValOfKeyAsString(keyAsString);
                 c.oldValAsString = state.ValAsStringOfKeyAsString(keyAsString);
@@ -202,7 +220,7 @@ module.exports = class {
             }
 
             this._atomicallyWriteIntentAndItsChangesToStorage(n, changes);
-            //^ should be implemented by child class, is called after the loop 
+            //^ should be implemented by child class, is called after the loops 
             //  so that all changes will have keyAsString, valAsString, oldVal, 
             //  and oldValAsString properties
 

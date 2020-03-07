@@ -2,13 +2,12 @@
 
 const RbTree = require(`bintrees`).RBTree;
 
-const {assert, CollabBase} = require(`@masalamunch/collab-utils`);
+const {assert, CollabBase, rejectBadInput} = require(`@masalamunch/collab-utils`);
 
 const CollabStateThatStoresValsAsStrings = require(`./CollabStateThatStoresValsAsStrings.js`);
 const CollabServerStorageViaLogFile = require(`./CollabServerStorageViaLogFile.js`);
 const DummyCollabServerStorage = require(`./DummyCollabServerStorage.js`);
-const CollabError = require(`./CollabError.js`);
-
+ 
 const VersionComparison = (a, b) => a - b;
 
 const firstVersion = 0;
@@ -23,7 +22,7 @@ module.exports = class extends CollabBase {
 
         super(config);
 
-        let {collabServerStorage, storagePath} = config;
+        let {collabServerStorage, storagePath, debug} = config;
 
         if (collabServerStorage === undefined) {
 
@@ -51,7 +50,7 @@ module.exports = class extends CollabBase {
 
         this._storage = collabServerStorage;
 
-        this._processId = Math.random();
+        this._id = Math.random();
 
         this._keyAsStringVersions = new Map();
         this._versionKeysAsStrings = new Map();
@@ -60,6 +59,8 @@ module.exports = class extends CollabBase {
         this._deletionVersionTree = new RbTree(VersionComparison);
 
         this._currentVersion = firstVersion;
+
+        this._isInDebugMode = debug;
 
         const storageChanges = this._storage.Changes();
 
@@ -111,95 +112,128 @@ module.exports = class extends CollabBase {
 
     sync (clientInputAsJson) {
 
-        const clientInput = FromJson(clientInputAsJson);
-        //^ clientInput contains [serverProcessId, version, intentsAsStrings]
-        const processId = this._processId;
-        let version;
+        const id = this._id;
         let changesForSync;
+        let rejectedClientInput = 0; // i.e. false
 
-        if (clientInput[0] === processId) {
+        try {
 
-            version = clientInput[1];
+            let clientInput;
+            try {
+                clientInput = FromJson(clientInputAsJson);
+                //^ clientInput contains [serverId, version, intentsAsStrings]
+            }
+            catch (error) {
+                rejectBadInput(error);
+            }
+            if (clientInput === null) {
+                rejectBadInput(new TypeError(`client input is null`));
+            }
+            let version;
 
-            changesForSync = this._VersionTreeChangesForSyncSince(
-                this._deletionVersionTree, 
-                version,
-                );
+            if (clientInput[0] === id) {
 
-        }
-        else {
+                version = clientInput[1];
 
-            version = firstVersion;
+                changesForSync = this._VersionTreeChangesForSyncSince(
+                    this._deletionVersionTree, 
+                    version,
+                    );
 
-        }
+            }
+            else {
 
-        if (changesForSync === undefined) {
-
-            changesForSync = this._VersionTreeChangesForSyncSince(
-                this._versionTree, 
-                version,
-                );
-
-        }
-        else {
-
-            let i;
-            const moreChangesForSync = this._VersionTreeChangesForSyncSince(
-                this._versionTree, 
-                version,
-                );
-            let changeCount = changesForSync.length;
-
-            for (i=moreChangesForSync.length-1; i>=0; i--) {
-            //^ reverse iteration is fine since trees don't contain overwritten 
-            //  changes
-
-                changesForSync[changeCount++] = moreChangesForSync[i];
+                version = firstVersion;
 
             }
 
-        }
+            if (changesForSync === undefined) {
 
-        //^ get the changes that've happened since the client last synced
+                changesForSync = this._VersionTreeChangesForSyncSince(
+                    this._versionTree, 
+                    version,
+                    );
 
-        if (clientInput[2] !== null) { // speeds up the common case
+            }
+            else {
 
-            let i;
-            const intentsAsStrings = clientInput[2];
-            const intentCount = intentsAsStrings.length;
-            let ias;
-            const IntentFromString = this._IntentFromString;
+                let i;
+                const moreChangesForSync = this._VersionTreeChangesForSyncSince(
+                    this._versionTree, 
+                    version,
+                    );
+                let changeCount = changesForSync.length;
 
-            for (i=0; i<intentCount; i++) {
+                for (i=moreChangesForSync.length-1; i>=0; i--) {
+                //^ reverse iteration is fine since trees don't contain overwritten 
+                //  changes
 
-                ias = intentsAsStrings[i];
-                if (typeof ias !== `string`) {
-                    break;
-                }
-                try {
-                    intentsAsStrings[i] = IntentFromString(ias);
-                } catch (error) {
-                    break;
+                    changesForSync[changeCount++] = moreChangesForSync[i];
+
                 }
 
             }
 
-            if (i === intentCount) { // if the loop didn't break
+            //^ get the changes that've happened since the client last synced
+
+            if (clientInput[2] !== null) {
+
+                let i;
+                const intentsAsStrings = clientInput[2];
+                const intentCount = intentsAsStrings.length;
+                let ias;
+                const IntentFromString = this._IntentFromString;
+
+                for (i=0; i<intentCount; i++) {
+
+                    ias = intentsAsStrings[i];
+                    if (typeof ias !== `string`) {
+                        rejectBadInput(new TypeError(
+                            `a non-string item was found in intentsAsStrings`
+                            ));
+                    }
+                    try {
+                        intentsAsStrings[i] = IntentFromString(ias);
+                    } catch (error) {
+                        rejectBadInput(error);
+                    }
+
+
+                }
 
                 this._writeIntentsToStateAndStorageAndReturnTheirChanges(
                     intentsAsStrings
                     );
+                
+                //^ replace every entry in intentsAsStrings with its corresponding 
+                //  intent, then write
 
             }
-            
-            //^ replace every entry in intentsAsStrings with its corresponding 
-            //  intent, then write
+
+            //^ do the client's intents
+
+        } catch (error) {
+
+            if (error.rejectedBadInput) {
+
+                rejectedClientInput = 1; // i.e. true
+
+                if (this._isInDebugMode) {
+                    console.error(error.reason);
+                }
+
+            }
+            else {
+
+                throw error;
+
+            }
 
         }
 
-        //^ do the client's intents
-
-        return AsJson([processId, this._currentVersion, changesForSync]);
+        return AsJson(
+            [id, this._currentVersion, changesForSync, rejectedClientInput]
+            );
 
     }
 
