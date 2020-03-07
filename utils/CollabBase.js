@@ -221,8 +221,7 @@ module.exports = class {
 
             this._atomicallyWriteIntentAndItsChangesToStorage(n, changes);
             //^ should be implemented by child class, is called after the loops 
-            //  so that all changes will have keyAsString, valAsString, oldVal, 
-            //  and oldValAsString properties
+            //  so that all the changes have the correct properties
 
             intentChanges[i] = changes;
 
