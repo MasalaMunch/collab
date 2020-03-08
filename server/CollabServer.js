@@ -214,7 +214,7 @@ module.exports = class extends CollabBase {
 
         } catch (error) {
 
-            if (error.rejectedBadInput) {
+            if (error.rejectedBadInput && error.hasOwnProperty(`reason`)) {
 
                 rejectedClientInput = 1; // i.e. true
 
