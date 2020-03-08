@@ -22,7 +22,7 @@ module.exports = class extends CollabBase {
 
         super(config);
 
-        let {collabServerStorage, storagePath, isProduction} = config;
+        let {collabServerStorage, storagePath} = config;
 
         if (collabServerStorage === undefined) {
 
@@ -39,12 +39,6 @@ module.exports = class extends CollabBase {
                 collabServerStorage = new DummyCollabServerStorage();
 
             }
-
-        }
-
-        if (isProduction === undefined) {
-
-            isProduction = false;
 
         }
 
@@ -65,8 +59,6 @@ module.exports = class extends CollabBase {
         this._deletionVersionTree = new RbTree(VersionComparison);
 
         this._currentVersion = firstVersion;
-
-        this._isProduction = isProduction;
 
         const storageChanges = this._storage.Changes();
 
@@ -223,10 +215,7 @@ module.exports = class extends CollabBase {
             if (error.rejectedBadInput && error.hasOwnProperty(`reason`)) {
 
                 rejectedClientInput = 1; // i.e. true
-
-                if (!this._isProduction) {
-                    console.error(error.reason);
-                }
+                console.log(error);
 
             }
             else {
