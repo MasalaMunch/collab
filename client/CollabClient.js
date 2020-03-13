@@ -2,7 +2,18 @@
 
 const {assert, Collab, Queue} = require(`@masalamunch/collab-utils`);
 
+const PrefixRegExp = require(`./PrefixRegExp,js`);
 const CollabStateThatStoresVals = require(`./CollabStateThatStoresVals.js`);
+
+const fakeStorage = {
+
+    setItem: () => undefined,
+
+    removeItem: () => undefined,
+
+    };
+
+const IntentAsStringWithNumberComparison = (a, b) => a[1] - b[1];
 
 module.exports = class extends Collab {
 
@@ -14,76 +25,124 @@ module.exports = class extends Collab {
 
         const {localStoragePrefix} = config;
 
-        this._serverId = 1; // i.e. undefined since serverIds fall within [0,1)
+        this._serverId = 0; 
+        //^ i.e. undefined since serverIds fall within [1, Infinity)
 
-        this._currentVersion = 0; // i.e. undefined since serverId is undefined
-
-        //TODO figure out storage abstractions (use stream concept!), then read them here (replace the
-        //     server code that's currently here)
+        this._currentVersion = -Infinity;
 
         if (localStoragePrefix === undefined) {
 
-            this._logFileAppendStream = new stream.PassThrough();
+            this._storage = fakeStorage;
+
+            this._versionStorageKey = undefined;
+
+            this._syncedStoragePrefix = undefined;
+            this._unsyncedStoragePrefix = undefined;
+
+            this._minIntentStorageNumber = undefined;
+            this._nextIntentStorageNumber = undefined;
 
         }
         else {
 
-            const logFilePath = path.join(localStoragePrefix, `log`);
+            this._storage = localStorage;
 
-            this._logFileAppendStream = fs.createWriteStream(
-                logFilePath, 
-                {flags: `a`, encoding: logFileEncoding},
-                );
+            assert(typeof localStoragePrefix === `string`);
 
-            const stringChanges = (
-                fs.readFileSync(logFilePath, {encoding: logFileEncoding})
-                .split(logFileSeparatorChar)
-                .slice(0, -1) // remove the last item
-                .map(FromJson)
-                .flat()
-                );
+            this._versionStorageKey = localStoragePrefix + `/v`;
+            //^ stores String(currentVersion)
+            
+            this._syncedStoragePrefix = localStoragePrefix + `/s/`;
+            //^ stores a {keyAsString: AsJson([oldValAsString, version, 
+            //  valAsString])} map
+            this._unsyncedStoragePrefix = localStoragePrefix + `/u/`;
+            //^ stores a {String(intentStorageNumber): intentAsString} map
 
-            const compressedStringChanges = [];
+            this._minIntentStorageNumber = undefined;
+            this._nextIntentStorageNumber = 0;
 
-            const overwrittenKeysAsStrings = new Set();
+            const storedVersion = this._storage.getItem(this._versionStorageKey);
+            if (storedVersion !== null) {
+                this._currentVersion = Number(storedVersion);
+            }
 
-            for (let i=stringChanges.length-1; i>=0; i--) {
+            let i;
+            const storage = this._storage;
+            let key;
+            const syncedRegExp = PrefixRegExp(this._syncedStoragePrefix);
+            let item;
+            let valAsString;
+            const version = this._currentVersion;
+            const defaultValAsString = this._defaultValAsString;
+            const removeTheseKeys = [];
+            let removeCount = 0;
+            const syncedPrefixLength = this._syncedStoragePrefix.length;
+            const unsyncedRegExp = PrefixRegExp(this._unsyncedStoragePrefix);
+            const intentsAsStringsWithNumbers = [];
+            let intentCount = 0;
+            const unsyncedPrefixLength = this._unsyncedStoragePrefix.length;
 
-                const c = stringChanges[i];
-                const [keyAsString, valAsString] = c;
+            for (i=storage.length-1; i>=0; i--) {
 
-                if (!overwrittenKeysAsStrings.has(keyAsString)) {
+                key = storage.key(n);
 
-                    overwrittenKeysAsStrings.add(keyAsString);
+                if (syncedRegExp.test(key)) {
 
-                    if (valAsString !== this._defaultValAsString) {
+                    item = FromJson(storage.getItem(key));
+                    valAsString = item[1] > version? item[0] : item[2];
 
-                        compressedStringChanges.push(c);
-
+                    if (valAsString === defaultValAsString) {
+                        removeTheseKeys[removeCount++] = key;
                     }
+                    else {
+                        this._writeChangeEventToState(
+                            this._StringChangeAsChangeEvent([
+                                key.substring(syncedPrefixLength, key.length), 
+                                valAsString,
+                                ])
+                            );
+                    }
+
+                }
+                else if (unsyncedRegExp.test(key)) {
+
+                    intentsAsStringsWithNumbers[intentCount++] = [
+                        storage.getItem(key),
+                        Number(key.substring(unsyncedPrefixLength, key.length)),
+                        ];
 
                 }
 
             }
-            //^ filter out changes that:
-            //
-            //      are overwritten by a later change
-            //      are deletions (valAsString === defaultValAsString)
-            //
-            //  (the remaining changes can be represented in the opposite order 
-            //   they happened because they contain no overwritten changes)
 
-            fs.writeFileSync(
-                logFilePath, 
-                AsJson(compressedStringChanges) + logFileSeparatorChar,
-                {encoding: logFileEncoding},
-                );
+            for (i=0; i<removeCount; i++) {
+                storage.removeItem(removeTheseKeys[i]);
+            }
+            //^ do removals after because you can't modify storage while 
+            //  iterating through it, according to https://stackoverflow.com/a/3138591
 
-            for (let i=0; i<compressedStringChanges.length; i++) {
+            if (intentCount > 0) {
 
-                this._writeChangeEventToState(
-                    this._StringChangeAsChangeEvent(compressedStringChanges[i])
+                intentsAsStringsWithNumbers.sort(
+                    IntentAsStringWithNumberComparison
                     );
+
+                this._minIntentStorageNumber = intentsAsStringsWithNumbers[0][1];
+                this._nextIntentStorageNumber = (
+                    intentsAsStringsWithNumbers[intentCount-1][1] + 1
+                    );
+
+                let intentAsString;
+                const IntentFromString = this._IntentFromString;
+
+                for (i=0; i<intentCount; i++) {
+
+                    intentAsString = intentsAsStringsWithNumbers[i][0];
+                    this._writeIntentAndReturnItsInfo(
+                        IntentFromString(intentAsString), intentAsString, true
+                        );
+
+                }
 
             }
 

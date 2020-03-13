@@ -1,6 +1,6 @@
 "use strict";
 
-const CollabServer = require(`./CollabServer.js`);
+const CollabClient = require(`./CollabClient.js`);
 
 module.exports = class {
 
@@ -10,14 +10,14 @@ module.exports = class {
         
     }
 
-    Server (collabServerConfig) {
+    Client (collabClientConfig) {
 
         const config = {};
 
-        Object.assign(config, collabServerConfig);
+        Object.assign(config, collabClientConfig);
         Object.assign(config, this._collabConfig);
 
-        return new CollabServer(config);
+        return new CollabClient(config);
 
     }
 

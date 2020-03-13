@@ -61,9 +61,9 @@ module.exports = class extends Collab {
                 .flat()
                 );
 
-            const compressedStringChanges = [];
-
             const overwrittenKeysAsStrings = new Set();
+
+            const compressedStringChanges = [];
 
             for (let i=stringChanges.length-1; i>=0; i--) {
 
@@ -77,6 +77,10 @@ module.exports = class extends Collab {
                     if (valAsString !== this._defaultValAsString) {
 
                         compressedStringChanges.push(c);
+                        
+                        this._writeChangeEventToState(
+                            this._StringChangeAsChangeEvent(c)
+                            );
 
                     }
 
@@ -88,7 +92,7 @@ module.exports = class extends Collab {
             //      are overwritten by a later change
             //      are deletions (valAsString === defaultValAsString)
             //
-            //  (the remaining changes can be represented in the opposite order 
+            //  (the remaining changes can be written in the opposite order 
             //   they happened because they contain no overwritten changes)
 
             fs.writeFileSync(
@@ -96,14 +100,6 @@ module.exports = class extends Collab {
                 AsJson(compressedStringChanges) + logFileSeparatorChar,
                 {encoding: logFileEncoding},
                 );
-
-            for (let i=0; i<compressedStringChanges.length; i++) {
-
-                this._writeChangeEventToState(
-                    this._StringChangeAsChangeEvent(compressedStringChanges[i])
-                    );
-
-            }
 
         }
 
