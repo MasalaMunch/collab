@@ -235,10 +235,9 @@ module.exports = class extends Collab {
             if (clientInput[2] !== 0) { // i.e. undefined
 
                 let i;
-                let intentsAsStrings;
+                const intentsAsStrings = clientInput[2];
                 let intentCount;
                 try {
-                    intentsAsStrings = clientInput[2];
                     intentCount = intentsAsStrings.length;
                 } catch (error) {
                     rejectBadInput(error);
