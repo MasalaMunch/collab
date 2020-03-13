@@ -112,7 +112,8 @@ module.exports = class {
             );
 
         this._changeCount += (
-            changeEvents.length + emptyArraySizeApproximationInChanges
+            changeEvents.length 
+            + emptyArraySizeApproximationInChanges
             );
 
         const action = this._nextAction++;
