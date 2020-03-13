@@ -6,7 +6,7 @@ const stream = require(`stream`);
 
 const RbTree = require(`bintrees`).RBTree;
 
-const {assert, CollabBase, rejectBadInput, AsJson, FromJson} 
+const {assert, Collab, rejectBadInput, AsJson, FromJson} 
     = require(`@masalamunch/collab-utils`);
 
 const CollabStateThatStoresValsAsStrings 
@@ -19,7 +19,7 @@ const VersionComparison = (a, b) => a - b;
 
 const firstVersion = 0;
 
-module.exports = class extends CollabBase {
+module.exports = class extends Collab {
 
     constructor (config) {
 
@@ -140,10 +140,12 @@ module.exports = class extends CollabBase {
 
     }
 
-    _writeIntentAndReturnItsInfo (intent, intentAsString) {
+    _writeIntentAndReturnItsInfo (intent, intentAsString, isFromStorage) {
 
         let i;
-        const info = super._writeIntentAndReturnItsInfo(intent, intentAsString);
+        const info = super._writeIntentAndReturnItsInfo(
+            intent, intentAsString, isFromStorage
+            );
         const changeEvents = info.changeEvents;
         const changeCount = changeEvents.length;
         let e;
@@ -270,7 +272,7 @@ module.exports = class extends CollabBase {
                         rejectBadInput(error);
                     }
                     intentStringChangesAsJson[i] = (
-                        this._writeIntentAndReturnItsInfo(n, s)
+                        this._writeIntentAndReturnItsInfo(n, s, false)
                         .stringChangesAsJson
                         );
 

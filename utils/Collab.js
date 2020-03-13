@@ -98,17 +98,17 @@ module.exports = class {
         
         try {
             intent = this._IntentFromString(intentAsString);
+            //^ ensures that both the doer of the intent and others who receive 
+            //  the intent as a string will process the same thing in their 
+            //  IntentAsChanges functions - in a perfect world this wouldn't be 
+            //  necessary, but it's here because it makes it impossible to 
+            //  introduce certain tricky-to-debug bugs
         } catch (error) {
             rejectBadInput(error);
         }
-        //^ ensures that both the doer of the intent and others who receive the 
-        //  intent as a string will process the same thing in their 
-        //  IntentAsChanges functions - in a perfect world this wouldn't be 
-        //  necessary, but it's here because it makes it impossible to introduce 
-        //  certain tricky-to-debug bugs
 
         const {changeEvents} = (
-            this._writeIntentAndReturnItsInfo(intent, intentAsString)
+            this._writeIntentAndReturnItsInfo(intent, intentAsString, false)
             );
 
         this._changeCount += (
@@ -143,7 +143,7 @@ module.exports = class {
 
     }
 
-    _writeIntentAndReturnItsInfo (intent, intentAsString) {
+    _writeIntentAndReturnItsInfo (intent, intentAsString, isFromStorage) {
 
         const state = this._state;
         const derivedState = this._derivedState;

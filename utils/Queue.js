@@ -1,15 +1,15 @@
 "use strict";
 
-const Queue = class {
+module.exports = {
 
     constructor () {
         this._firstNode = undefined;
         this._lastNode = undefined;
     }
 
-    IsEmpty () {
-        return this._firstNode === undefined;
-    }
+    // IsEmpty () {
+    //     return this._firstNode === undefined;
+    // }
 
     OldestItem () {
         return this._firstNode[0];

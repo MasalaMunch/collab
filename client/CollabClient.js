@@ -1,73 +1,107 @@
 "use strict";
 
-const {assert, CollabBase, Queue} = require(`@masalamunch/collab-utils`);
+const {assert, Collab, Queue} = require(`@masalamunch/collab-utils`);
 
 const CollabStateThatStoresVals = require(`./CollabStateThatStoresVals.js`);
-const DummyCollabClientStorage = require(`./DummyCollabClientStorage.js`);
-const CollabClientStorageViaLocalStorage = require(`./CollabClientStorageViaLocalStorage.js`);
 
-//TODO replace current storage abstraction with lower-level streamed storage abstractions
-
-module.exports = class extends CollabBase {
+module.exports = class extends Collab {
 
     constructor (config) {
 
-        if (config.CollabState === undefined) {
-            config.CollabState = CollabStateThatStoresVals;
-        }
+        config.CollabState = CollabStateThatStoresVals;
 
         super(config);
 
-        let {collabClientStorage, localStoragePrefix} = config;
+        const {localStoragePrefix} = config;
 
-        if (collabClientStorage === undefined) {
+        this._serverId = 1; // i.e. undefined since serverIds fall within [0,1)
 
-            if (localStoragePrefix === undefined) {
+        this._currentVersion = 0; // i.e. undefined since serverId is undefined
 
-                collabClientStorage = new DummyCollabClientStorage();
+        //TODO figure out storage abstractions (use stream concept!), then read them here (replace the
+        //     server code that's currently here)
+
+        if (localStoragePrefix === undefined) {
+
+            this._logFileAppendStream = new stream.PassThrough();
+
+        }
+        else {
+
+            const logFilePath = path.join(localStoragePrefix, `log`);
+
+            this._logFileAppendStream = fs.createWriteStream(
+                logFilePath, 
+                {flags: `a`, encoding: logFileEncoding},
+                );
+
+            const stringChanges = (
+                fs.readFileSync(logFilePath, {encoding: logFileEncoding})
+                .split(logFileSeparatorChar)
+                .slice(0, -1) // remove the last item
+                .map(FromJson)
+                .flat()
+                );
+
+            const compressedStringChanges = [];
+
+            const overwrittenKeysAsStrings = new Set();
+
+            for (let i=stringChanges.length-1; i>=0; i--) {
+
+                const c = stringChanges[i];
+                const [keyAsString, valAsString] = c;
+
+                if (!overwrittenKeysAsStrings.has(keyAsString)) {
+
+                    overwrittenKeysAsStrings.add(keyAsString);
+
+                    if (valAsString !== this._defaultValAsString) {
+
+                        compressedStringChanges.push(c);
+
+                    }
+
+                }
 
             }
-            else {
+            //^ filter out changes that:
+            //
+            //      are overwritten by a later change
+            //      are deletions (valAsString === defaultValAsString)
+            //
+            //  (the remaining changes can be represented in the opposite order 
+            //   they happened because they contain no overwritten changes)
 
-                collabClientStorage = new CollabServerStorageViaLogFile({
-                    prefix: localStoragePrefix,
-                    defaultValAsString: this._defaultValAsString,
-                    });
+            fs.writeFileSync(
+                logFilePath, 
+                AsJson(compressedStringChanges) + logFileSeparatorChar,
+                {encoding: logFileEncoding},
+                );
+
+            for (let i=0; i<compressedStringChanges.length; i++) {
+
+                this._writeChangeEventToState(
+                    this._StringChangeAsChangeEvent(compressedStringChanges[i])
+                    );
 
             }
 
         }
 
-        assert(typeof collabClientStorage.ChangesAndVersion === `function`);
-        assert(typeof collabClientStorage.writeChangesAndVersion === `function`);
-
-        this._storage = collabClientStorage;
-
-        this._serverId = undefined;
-
-        const storedChangesAndVersionAndIntents = (
-            this._storage.ChangesAndVersionAndIntents()
-            );
-
-        this._currentVersion = storedChangesAndVersionAndIntents[1];
-
-        this._writeStoredChanges(storedChangesAndVersionAndIntents[0]);
-
-        this._bufferedActions = [];
-        this._bufferedActionIntents = [];
-        this._bufferReversingChanges = new Map();
-
-        //TODO also read storage intents and do those
-
     }
 
-    _writeIntentAndReturnItsChanges (intent, intentAsString) {
+    _writeIntentAndReturnItsInfo (intent, intentAsString, isFromStorage) {
 
-        const changes = super._writeIntentAndReturnItsChanges(intent, intentAsString);
+        const info = super._writeIntentAndReturnItsInfo(
+            intent, intentAsString, isFromStorage
+            );
+        const changeEvents = info.changeEvents;
 
-        //TODO
+        //TODO write intent to in-memory buffer and storage buffer stream if not 
+        //     from storage
 
-        return changes;
+        return info;
 
     }
 
@@ -79,7 +113,7 @@ module.exports = class extends CollabBase {
 
     finishSync (serverOutput) {
 
-
+        //TODO write all these changes atomically to storage stream
 
     }
 
