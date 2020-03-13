@@ -102,11 +102,11 @@ module.exports = class extends Collab {
 
                     if (valAsString !== this._defaultValAsString) {
 
-                        compressedStringChanges.push(c);
-                        
                         this._writeChangeEventToState(
                             this._StringChangeAsChangeEvent(c)
                             );
+
+                        compressedStringChanges.push(c);
 
                     }
 

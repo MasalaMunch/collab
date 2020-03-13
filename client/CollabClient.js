@@ -91,15 +91,19 @@ module.exports = class extends Collab {
                     valAsString = item[1] > version? item[0] : item[2];
 
                     if (valAsString === defaultValAsString) {
+
                         removeTheseKeys[removeCount++] = key;
+
                     }
                     else {
+
                         this._writeChangeEventToState(
                             this._StringChangeAsChangeEvent([
                                 key.substring(syncedPrefixLength, key.length), 
                                 valAsString,
                                 ])
                             );
+                        
                     }
 
                 }
