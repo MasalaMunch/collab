@@ -61,13 +61,13 @@ module.exports = class extends Collab {
             this._minIntentStorageNumber = undefined;
             this._nextIntentStorageNumber = 0;
 
-            const storedVersion = this._storage.getItem(this._versionStorageKey);
+            const storage = this._storage;
+            const storedVersion = storage.getItem(this._versionStorageKey);
             if (storedVersion !== null) {
                 this._currentVersion = Number(storedVersion);
             }
 
             let i;
-            const storage = this._storage;
             let key;
             const syncedRegExp = PrefixRegExp(this._syncedStoragePrefix);
             let item;
