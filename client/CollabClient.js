@@ -6,6 +6,8 @@ const CollabStateThatStoresVals = require(`./CollabStateThatStoresVals.js`);
 const DummyCollabClientStorage = require(`./DummyCollabClientStorage.js`);
 const CollabClientStorageViaLocalStorage = require(`./CollabClientStorageViaLocalStorage.js`);
 
+//TODO replace current storage abstraction with lower-level streamed storage abstractions
+
 module.exports = class extends CollabBase {
 
     constructor (config) {
