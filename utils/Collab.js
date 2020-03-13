@@ -107,7 +107,7 @@ module.exports = class {
             rejectBadInput(error);
         }
 
-        const {changeEvents} = (
+        const {changeEvents, action} = (
             this._writeIntentAndReturnItsInfo(intent, intentAsString, false)
             );
 
@@ -115,8 +115,6 @@ module.exports = class {
             changeEvents.length 
             + emptyArraySizeApproximationInChanges
             );
-
-        const action = this._nextAction++;
 
         this._actionQueue.add(action);
         this._actionChangeEvents.set(action, changeEvents);
@@ -228,7 +226,7 @@ module.exports = class {
 
         }
 
-        return {changeEvents};
+        return {changeEvents, action: this._nextAction++};
 
     }
 

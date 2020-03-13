@@ -29,6 +29,16 @@ module.exports = class extends Collab {
 
         this._currentVersion = -Infinity;
 
+        this._unsyncedIntentsAsStrings = [];
+        this._unsyncedActions = [];
+        //^ used to fix the action history after these actions are synced with 
+        //  the server (their changeEvents might have changed)
+        this._unsyncedChangeEvents = new Map();
+        //^ a {keyAsString -> changeEvent} map that represents the difference 
+        //  between the synced state and the unsynced (current) state, it's used '
+        //  to revert the client to a synced state before it applies changes 
+        //  from the server
+
         if (localStoragePrefix === undefined) {
 
             this._storage = fakeStorage;
@@ -158,7 +168,41 @@ module.exports = class extends Collab {
         const info = super._writeIntentAndReturnItsInfo(
             intent, intentAsString, isFromStorage
             );
+
+        const unsyncedActions = this._unsyncedActions;
+        const unsyncedActionCount = unsyncedActions.length;
+
+        unsyncedActions[unsyncedActionCount] = info.action;
+        this._unsyncedIntentsAsStrings[unsyncedActionCount] = intentAsString;
+
+        let i;
         const changeEvents = info.changeEvents;
+        const changeCount = changeEvents.length;
+        let e;
+        let keyAsString;
+        let u;
+        const unsyncedChangeEvents = this._unsyncedChangeEvents;
+
+        for (i=0; i<changeCount; i++) {
+
+            e = changeEvents[i];
+            keyAsString = e.keyAsString;
+            u = unsyncedChangeEvents.get(keyAsString);
+
+            if (u === undefined) {
+
+                unsyncedChangeEvents.set(keyAsString, Object.assign({}, e));
+
+            }
+            else {
+
+                u.val = e.val;
+                u.valAsString = e.valAsString;
+
+            }
+
+
+        }
 
         //TODO write intent to in-memory buffer and storage buffer stream if not 
         //     from storage
