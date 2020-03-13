@@ -14,6 +14,7 @@ const CollabStateThatStoresValsAsStrings
 
 const logFileEncoding = `utf8`;
 const logFileSeparatorChar = `\n`;
+const idFileEncoding = `utf8`;
 
 const VersionComparison = (a, b) => a - b;
 
@@ -29,9 +30,6 @@ module.exports = class extends Collab {
 
         const {storagePath} = config;
 
-        this._id = Math.random();
-        //TODO replace with incrementing integer system
-
         this._keyAsStringVersions = new Map();
         this._versionKeysAsStrings = new Map();
 
@@ -43,6 +41,7 @@ module.exports = class extends Collab {
         if (storagePath === undefined) {
 
             this._logFileAppendStream = new PassThroughStream();
+            this._id = 1 + Math.random();
 
         }
         else {
@@ -52,6 +51,32 @@ module.exports = class extends Collab {
             this._logFileAppendStream = fs.createWriteStream(
                 logFilePath, 
                 {flags: `a`, encoding: logFileEncoding},
+                );
+
+            const idFilePath = JoinedPaths(storagePath, `id`);
+
+            try {
+
+                this._id = 1 + Number(fs.readFileSync(
+                    idFilePath, 
+                    {encoding: idFileEncoding},
+                    ));
+
+            } catch (error) {
+
+                if (error.code === `ENOENT`) {
+                    this._id = 1;
+                }
+                else {
+                    throw error;
+                }
+
+            }
+
+            fs.writeFileSync(
+                idFilePath, 
+                String(this._id), 
+                {encoding: idFileEncoding},
                 );
 
             const stringChanges = (

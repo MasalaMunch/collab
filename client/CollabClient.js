@@ -25,8 +25,8 @@ module.exports = class extends Collab {
 
         const {localStoragePrefix} = config;
 
-        this._serverId = 0; 
-        //^ i.e. undefined since serverIds fall within [1, Infinity)
+        this._serverId = 0;
+        //^ i.e. undefined, since serverIds fall within [1, Infinity)
 
         this._currentVersion = -Infinity;
 
