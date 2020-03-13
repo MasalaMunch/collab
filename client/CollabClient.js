@@ -49,14 +49,14 @@ module.exports = class extends Collab {
 
             assert(typeof localStoragePrefix === `string`);
 
-            this._versionStorageKey = localStoragePrefix + `/v`;
+            this._versionStorageKey = localStoragePrefix + `v`;
             //^ stores String(currentVersion)
             
-            this._syncedStoragePrefix = localStoragePrefix + `/s/`;
-            //^ stores a {keyAsString: AsJson([oldValAsString, version, 
+            this._syncedStoragePrefix = localStoragePrefix + `s/`;
+            //^ stores a {keyAsString -> AsJson([oldValAsString, version, 
             //  valAsString])} map
-            this._unsyncedStoragePrefix = localStoragePrefix + `/u/`;
-            //^ stores a {String(intentStorageNumber): intentAsString} map
+            this._unsyncedStoragePrefix = localStoragePrefix + `u/`;
+            //^ stores a {String(intentStorageNumber) -> intentAsString} map
 
             this._minIntentStorageNumber = undefined;
             this._nextIntentStorageNumber = 0;
