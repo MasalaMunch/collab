@@ -149,14 +149,9 @@ module.exports = class {
         const derivedState = this._derivedState;
         
         let changes;
-        try {
-            changes = this._IntentAsChanges(intent, state, derivedState);
-        } catch (error) {
-            rejectBadInput(error);
-        }
-        
         let changeCount;
         try {
+            changes = this._IntentAsChanges(intent, state, derivedState);
             changeCount = changes.length;
         } catch (error) {
             rejectBadInput(error);

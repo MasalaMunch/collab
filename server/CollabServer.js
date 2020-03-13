@@ -114,7 +114,7 @@ module.exports = class extends CollabBase {
         const iterator = tree.upperBound(version);
 
         if (iterator.data() === null) {
-            return; // speeds up the common case
+            return 0; // i.e. undefined, speeds up the common case
         }
 
         const newStringChanges = [];
@@ -169,9 +169,9 @@ module.exports = class extends CollabBase {
     sync (clientInputAsJson) {
 
         const id = this._id;
-        let newStringChanges;
-        let intentStringChangesAsJson;
-        let rejectedInput = false;
+        let newStringChanges = 0; // i.e. undefined
+        let intentStringChangesAsJson = 0; // i.e. undefined
+        let rejectedInput = 0; // i.e. false
 
         try {
 
@@ -204,7 +204,7 @@ module.exports = class extends CollabBase {
 
             }
 
-            if (newStringChanges === undefined) {
+            if (newStringChanges === 0) { // i.e. undefined
 
                 newStringChanges = this._VersionTreeStringChangesSince(
                     this._versionTree, 
@@ -233,11 +233,17 @@ module.exports = class extends CollabBase {
 
             //^ get the changes that've happened since the client last synced
 
-            if (clientInput[2] !== null) {
+            if (clientInput[2] !== 0) { // i.e. undefined
 
                 let i;
-                const intentsAsStrings = clientInput[2];
-                const intentCount = intentsAsStrings.length;
+                let intentsAsStrings;
+                let intentCount;
+                try {
+                    intentsAsStrings = clientInput[2];
+                    intentCount = intentsAsStrings.length;
+                } catch (error) {
+                    rejectBadInput(error);
+                }
                 let s;
                 let n;
                 const IntentFromString = this._IntentFromString;
@@ -279,7 +285,7 @@ module.exports = class extends CollabBase {
             if (error.rejectedBadInput === true 
             && error.hasOwnProperty(`reason`)) {
 
-                rejectedInput = true;
+                rejectedInput = 1; // i.e. true
                 console.log(error);
 
             }
