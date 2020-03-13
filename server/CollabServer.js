@@ -2,7 +2,7 @@
 
 const fs = require(`fs`);
 const JoinedPaths = require(`path`).join;
-const PassThroughStream = require(`stream`).PassThrough;
+const fakeStream = new require(`stream`).PassThrough();
 
 const RbTree = require(`bintrees`).RBTree;
 
@@ -40,7 +40,7 @@ module.exports = class extends Collab {
 
         if (storagePath === undefined) {
 
-            this._logFileAppendStream = new PassThroughStream();
+            this._logFileAppendStream = fakeStream;
             this._id = 1 + Math.random();
 
         }
