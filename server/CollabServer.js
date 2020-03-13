@@ -64,7 +64,7 @@ module.exports = class extends Collab {
 
             } catch (error) {
 
-                if (error.code === `ENOENT`) {
+                if (error.code === `ENOENT`) { // if file doesn't exist
                     this._id = 1;
                 }
                 else {
