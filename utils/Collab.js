@@ -219,8 +219,10 @@ module.exports = class {
 
             e = changeEvents[i];
             keyAsString = e.keyAsString;
+
             e.oldVal = state.ValOfKeyAsString(keyAsString);
             e.oldValAsString = state.ValAsStringOfKeyAsString(keyAsString);
+
             this._writeChangeEventToState(e);
 
         }
@@ -252,8 +254,11 @@ module.exports = class {
     _writeChangeEventToState (changeEvent) {
 
         const state = this.state;
+
         state._writeChangeEvent(changeEvent);
+
         const derivedState = this.derivedState;
+        
         this._updateDerivedState(changeEvent, state, derivedState);
         this._handleChangeEvent(changeEvent, state, derivedState);
 
