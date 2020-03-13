@@ -9,4 +9,5 @@ module.exports = {
     Collab: require(`./Collab.js`),
     CollabStateBase: require(`./CollabStateBase.js`),
     rejectBadInput: require(`./rejectBadInput.js`),
+    sharedCollabConfigProps: require(`./sharedCollabConfigProps.js`),
     };

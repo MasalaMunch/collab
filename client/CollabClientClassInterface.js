@@ -1,5 +1,7 @@
 "use strict";
 
+const {assert, sharedCollabConfigProps} = require(`@masalamunch/collab-utils`);
+
 const CollabClient = require(`./CollabClient.js`);
 
 module.exports = class {
@@ -12,10 +14,13 @@ module.exports = class {
 
     Client (collabClientConfig) {
 
-        const config = {};
+        for (const prop in collabClientConfig) {
+            assert(!sharedCollabConfigProps.has(prop));
+        }
 
-        Object.assign(config, collabClientConfig);
+        const config = {};
         Object.assign(config, this._collabConfig);
+        Object.assign(config, collabClientConfig);
 
         return new CollabClient(config);
 
