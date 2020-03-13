@@ -30,6 +30,7 @@ module.exports = class extends Collab {
         const {storagePath} = config;
 
         this._id = Math.random();
+        //TODO replace with incrementing integer system
 
         this._keyAsStringVersions = new Map();
         this._versionKeysAsStrings = new Map();
