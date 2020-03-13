@@ -103,7 +103,7 @@ module.exports = class extends Collab {
                                 valAsString,
                                 ])
                             );
-                        
+
                     }
 
                 }
@@ -186,20 +186,3 @@ module.exports = class extends Collab {
     }
 
 };
-
-const CollabClientClassInterface = class {
-
-    constructor (coreConfig) {
-        this._coreConfig = coreConfig;
-    }
-
-    Client (clientConfig) {
-        const config = {};
-        Object.assign(config, this._coreConfig);
-        Object.assign(config, clientConfig);
-        return new CollabClient(config);
-    }
-
-};
-
-module.exports = ClassFactory(CollabClientClassInterface);
