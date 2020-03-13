@@ -8,7 +8,6 @@ const CollabStateThatStoresVals = require(`./CollabStateThatStoresVals.js`);
 const fakeStorage = {
 
     setItem: () => undefined,
-
     removeItem: () => undefined,
 
     };
