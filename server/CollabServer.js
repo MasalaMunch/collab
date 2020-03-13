@@ -1,8 +1,8 @@
 "use strict";
 
 const fs = require(`fs`);
-const path = require(`path`);
-const stream = require(`stream`);
+const JoinedPaths = require(`path`).join;
+const PassThroughStream = require(`stream`).PassThrough;
 
 const RbTree = require(`bintrees`).RBTree;
 
@@ -42,12 +42,12 @@ module.exports = class extends Collab {
 
         if (storagePath === undefined) {
 
-            this._logFileAppendStream = new stream.PassThrough();
+            this._logFileAppendStream = new PassThroughStream();
 
         }
         else {
 
-            const logFilePath = path.join(storagePath, `log`);
+            const logFilePath = JoinedPaths(storagePath, `log`);
 
             this._logFileAppendStream = fs.createWriteStream(
                 logFilePath, 
