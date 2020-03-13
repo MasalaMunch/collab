@@ -78,7 +78,7 @@ module.exports = class {
 
     }
 
-    atomicallyWriteChanges (changes) {
+    writeChanges (changes) {
 
         let i;
         const changeCount = changes.length;

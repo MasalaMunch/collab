@@ -24,13 +24,13 @@ module.exports = class extends CollabStateBase {
 
     }
 
-    _writeChange (change) {
+    _writeChangeEvent (changeEvent) {
 
-        if (change.valAsString === this.defaultValAsString) {
-            this._map.delete(change.keyAsString);
+        if (changeEvent.valAsString === this.defaultValAsString) {
+            this._map.delete(changeEvent.keyAsString);
         }
         else {
-            this._map.set(change.keyAsString, change.valAsString);
+            this._map.set(changeEvent.keyAsString, changeEvent.valAsString);
         }
 
     }

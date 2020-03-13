@@ -6,10 +6,9 @@ const AsJson = require(`./AsJson.js`);
 const AsJsonWithSortedKeys = require(`./AsJsonWithSortedKeys.js`);
 const FromJson = require(`./FromJson.js`);
 const rejectBadInput = require(`./rejectBadInput.js`);
+const doNothing = require(`./doNothing.js`);
 
 const DefaultIntentAsChanges = (intent, state, derivedState) => intent;
-
-const doNothing = () => {};
 
 const emptyArraySizeApproximationInChanges = 1;
 
@@ -25,7 +24,7 @@ module.exports = class {
                   ValAsString=AsJsonWithSortedKeys,
                   ValFromString=FromJson,
                   IntentAsString=AsJson,
-                  handleChange=doNothing,
+                  handleChangeEvent=doNothing,
                   IntentFromString=FromJson}) {
 
         assert(typeof KeyAsString === `function`);
@@ -63,8 +62,8 @@ module.exports = class {
         assert(typeof updateDerivedState === `function`);
         this._updateDerivedState = updateDerivedState;
 
-        assert(typeof handleChange === `function`);
-        this._handleChange = handleChange;
+        assert(typeof handleChangeEvent === `function`);
+        this._handleChangeEvent = handleChangeEvent;
 
         assert(typeof IntentAsChanges === `function`);
         this._IntentAsChanges = IntentAsChanges;
@@ -75,7 +74,7 @@ module.exports = class {
             );
         this._rememberThisManyChanges = rememberThisManyChanges;
         this._changeCount = 0;
-        this._actionChanges = new Map();
+        this._actionChangeEvents = new Map();
         this._actionIntents = new Map();
         this._actionQueue = new Queue();
         this._nextAction = Number.MIN_SAFE_INTEGER;
@@ -85,16 +84,41 @@ module.exports = class {
 
     do (intent) {
 
-        const changes = (
-            this._writeIntentsToStateAndStorageAndReturnTheirChanges([intent])[0]
+        let intentAsString;
+        try {
+            intentAsString = this._IntentAsString(intent);
+        } catch (error) {
+            rejectBadInput(error);
+        }
+        if (typeof intentAsString !== `string`) {
+            rejectBadInput(new TypeError(
+                `IntentAsString didn't return a string`
+                ));
+        }
+        
+        try {
+            intent = this._IntentFromString(intentAsString);
+        } catch (error) {
+            rejectBadInput(error);
+        }
+        //^ ensures that both the doer of the intent and others who receive the 
+        //  intent as a string will process the same thing in their 
+        //  IntentAsChanges functions - in a perfect world this wouldn't be 
+        //  necessary, but it's here because it makes it impossible to introduce 
+        //  certain tricky-to-debug bugs
+
+        const {changeEvents} = (
+            this._writeIntentAndReturnItsInfo(intent, intentAsString)
             );
 
-        this._changeCount += changes.length + emptyArraySizeApproximationInChanges;
+        this._changeCount += (
+            changeEvents.length + emptyArraySizeApproximationInChanges
+            );
 
         const action = this._nextAction++;
 
         this._actionQueue.add(action);
-        this._actionChanges.set(action, changes);
+        this._actionChangeEvents.set(action, changeEvents);
         this._actionIntents.set(action, intent);
 
         while (this._changeCount > this._rememberThisManyChanges) {
@@ -105,150 +129,138 @@ module.exports = class {
             const forgetThisAction = this._actionQueue.OldestItem();
 
             this._changeCount -= (
-                this._actionChanges.get(forgetThisAction).length 
+                this._actionChangeEvents.get(forgetThisAction).length 
                 + emptyArraySizeApproximationInChanges
                 );
 
             this._actionQueue.deleteOldestItem();
-            this._actionChanges.delete(forgetThisAction);
+            this._actionChangeEvents.delete(forgetThisAction);
             this._actionIntents.delete(forgetThisAction);
 
         }
-            
+
         return action;
 
     }
 
-    _writeIntentsToStateAndStorageAndReturnTheirChanges (intents) {
+    _writeIntentAndReturnItsInfo (intent, intentAsString) {
 
-        let i;
-        const intentCount = intents.length;
-        let n;
+        const state = this._state;
+        const derivedState = this._derivedState;
+        
         let changes;
-        const IntentAsChanges = this._IntentAsChanges;
-        const state = this.state;
-        const derivedState = this.derivedState;
+        try {
+            changes = this._IntentAsChanges(intent, state, derivedState);
+        } catch (error) {
+            rejectBadInput(error);
+        }
+        
         let changeCount;
-        let j;
+        try {
+            changeCount = changes.length;
+        } catch (error) {
+            rejectBadInput(error);
+        }
+        
+        let i;
         let c;
-        let keyAsString;
         const KeyAsString = this._KeyAsString;
-        const KeyFromString = this._KeyFromString;
-        let valAsString;
+        let keyAsString;
         const ValAsString = this._ValAsString;
+        let valAsString;
+        const changeEvents = [];
+        const KeyFromString = this._KeyFromString;
         const ValFromString = this._ValFromString;
-        const intentChanges = [];
+        
+        for (i=0; i<changeCount; i++) {
 
-        for (i=0; i<intentCount; i++) {
+            c = changes[i]; // c contains [key, val]
 
-            n = intents[i];
             try {
-                changes = IntentAsChanges(n, state, derivedState);
+                keyAsString = KeyAsString(c[0]);
+                valAsString = ValAsString(c[1]);
+            }
+            catch (error) {
+                rejectBadInput(error);
+            }
+            if (typeof keyAsString !== `string`) {
+                rejectBadInput(new TypeError(
+                    `KeyAsString didn't return a string`
+                    ));
+            }
+            if (typeof valAsString !== `string`) {
+                rejectBadInput(new TypeError(
+                    `ValAsString didn't return a string`
+                    ));
+            }
+
+            try {
+
+                changeEvents[i] = {
+
+                    keyAsString, 
+                    valAsString, 
+
+                    key: KeyFromString(keyAsString),
+                    val: ValFromString(valAsString),
+                    //^ ensures that both the doer of the intent and others who 
+                    //  receive the intent's changes will process the same key  
+                    //  and val in their _writeChangeEventToState functions - in  
+                    //  a perfect world this wouldn't be necessary, but it's   
+                    //  here because it makes it impossible to introduce certain  
+                    //  tricky-to-debug bugs
+
+                    };
+
             } catch (error) {
                 rejectBadInput(error);
             }
-            try {
-                changeCount = changes.length;
-            } catch (error) {
-                rejectBadInput(error);
-            }
-
-            for (j=0; j<changeCount; j++) {
-
-                c = changes[j];
-
-                try {
-                    keyAsString = KeyAsString(c.key);
-                }
-                catch (error) {
-                    rejectBadInput(error);
-                }
-                if (typeof keyAsString !== `string`) {
-                    rejectBadInput(new TypeError(
-                        `KeyAsString didn't return a string`
-                        ));
-                }
-                c.keyAsString = keyAsString;
-
-                try {
-                    valAsString = ValAsString(c.val);
-                }
-                catch (error) {
-                    rejectBadInput(error);
-                }
-                if (typeof valAsString !== `string`) {
-                    rejectBadInput(new TypeError(
-                        `ValAsString didn't return a string`
-                        ));
-                }
-                c.valAsString = valAsString;
-
-                //^ fill in string versions of key and val
-
-                try {
-                    c.key = KeyFromString(keyAsString);
-                }
-                catch (error) {
-                    rejectBadInput(error);
-                }
-
-                try {
-                    c.val = ValFromString(valAsString);
-                }
-                catch (error) {
-                    rejectBadInput(error);
-                }
-
-                //^ ensures that both the doer of the intent and others who 
-                //  receive the intent's changes will process the same key and 
-                //  val in their _writeChangeToState functions - in a perfect 
-                //  world this wouldn't be necessary, but it's here because it 
-                //  makes it impossible to introduce certain tricky-to-debug 
-                //  bugs, and therefore makes collab more developer-friendly
-
-            }
-
-            for (j=0; j<changeCount; j++) {
-
-                c = changes[j];
-
-                c.oldVal = state.ValOfKeyAsString(keyAsString);
-                c.oldValAsString = state.ValAsStringOfKeyAsString(keyAsString);
-
-                this._writeChangeToState(c);
-
-            }
-
-            this._atomicallyWriteIntentAndItsChangesToStorage(n, changes);
-            //^ should be implemented by child class, is called after the loops 
-            //  so that all the changes have the correct properties
-
-            intentChanges[i] = changes;
 
         }
 
-        return intentChanges;
+        let e;
+
+        for (i=0; i<changeCount; i++) {
+
+            e = changeEvents[i];
+            keyAsString = e.keyAsString;
+            e.oldVal = state.ValOfKeyAsString(keyAsString);
+            e.oldValAsString = state.ValAsStringOfKeyAsString(keyAsString);
+            this._writeChangeEventToState(e);
+
+        }
+
+        return {changeEvents};
 
     }
 
-    _normalizeStorageChange (storageChange) {
+    _StringChangeAsChangeEvent (stringChange) {
 
-        const keyAsString = storageChange.keyAsString;
-        storageChange.key = this._KeyFromString(keyAsString);
-        storageChange.val = this._ValFromString(storageChange.valAsString);
-        const state = this.state;
-        storageChange.oldVal = state.ValOfKeyAsString(keyAsString);
-        storageChange.oldValAsString = state.ValAsStringOfKeyAsString(keyAsString);
+        const [keyAsString, valAsString] = stringChange;
+        const state = this._state;
 
+        return {
+
+            keyAsString,
+            valAsString,
+
+            key: this._KeyFromString(keyAsString),
+            val: this._ValFromString(valAsString),
+
+            oldVal: state.ValOfKeyAsString(keyAsString),
+            oldValAsString: state.ValAsStringOfKeyAsString(keyAsString),
+
+            };
+            
     }
 
-    _writeChangeToState (change) {
+    _writeChangeEventToState (changeEvent) {
 
         const state = this.state;
-        state._writeChange(change);
+        state._writeChangeEvent(changeEvent);
         const derivedState = this.derivedState;
-        this._updateDerivedState(change, state, derivedState);
-        this._handleChange(change, state, derivedState);
+        this._updateDerivedState(changeEvent, state, derivedState);
+        this._handleChangeEvent(changeEvent, state, derivedState);
 
     }
 
@@ -256,8 +268,8 @@ module.exports = class {
         return this._actionIntents.get(action);
     }
 
-    ChangesOfAction (action) {
-        return this._actionChanges.get(action);
+    ChangeEventsOfAction (action) {
+        return this._actionChangeEvents.get(action);
     }
 
 };

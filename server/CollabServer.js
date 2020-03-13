@@ -1,13 +1,20 @@
 "use strict";
 
+const fs = require(`fs`);
+const path = require(`path`);
+const stream = require(`stream`);
+
 const RbTree = require(`bintrees`).RBTree;
 
-const {assert, CollabBase, rejectBadInput} = require(`@masalamunch/collab-utils`);
+const {assert, CollabBase, rejectBadInput, AsJson, FromJson} 
+    = require(`@masalamunch/collab-utils`);
 
-const CollabStateThatStoresValsAsStrings = require(`./CollabStateThatStoresValsAsStrings.js`);
-const CollabServerStorageViaLogFile = require(`./CollabServerStorageViaLogFile.js`);
-const DummyCollabServerStorage = require(`./DummyCollabServerStorage.js`);
- 
+const CollabStateThatStoresValsAsStrings 
+    = require(`./CollabStateThatStoresValsAsStrings.js`);
+
+const logFileEncoding = `utf8`;
+const logFileSeparatorChar = `\n`;
+
 const VersionComparison = (a, b) => a - b;
 
 const firstVersion = 0;
@@ -16,39 +23,11 @@ module.exports = class extends CollabBase {
 
     constructor (config) {
 
-        if (config.CollabState === undefined) {
-            config.CollabState = CollabStateThatStoresValsAsStrings;
-        }
+        config.CollabState = CollabStateThatStoresValsAsStrings;
 
         super(config);
 
-        let {collabServerStorage, storagePath} = config;
-
-        if (collabServerStorage === undefined) {
-
-            if (storagePath === undefined) {
-
-                collabServerStorage = new CollabServerStorageViaLogFile({
-                    path: config.storagePath,
-                    defaultValAsString: this._defaultValAsString,
-                    });
-
-            }
-            else {
-
-                collabServerStorage = new DummyCollabServerStorage();
-
-            }
-
-        }
-
-        assert(typeof collabServerStorage.Changes === `function`);
-        assert(
-            typeof collabServerStorage.atomicallyWriteChanges 
-            === `function`
-            );
-
-        this._storage = collabServerStorage;
+        const {storagePath} = config;
 
         this._id = Math.random();
 
@@ -60,18 +39,77 @@ module.exports = class extends CollabBase {
 
         this._currentVersion = firstVersion;
 
-        const storageChanges = this._storage.Changes();
+        if (storagePath === undefined) {
 
-        for (let i=0; i<storageChanges.length; i++) {
+            this._logFileAppendStream = new stream.PassThrough();
 
-            this._normalizeStorageChange(storageChanges[i]);
-            this._writeChangeToState(storageChanges[i]);
+        }
+        else {
+
+            const logFilePath = path.join(storagePath, `log`);
+
+            this._logFileAppendStream = fs.createWriteStream(
+                logFilePath, 
+                {flags: `a`, encoding: logFileEncoding},
+                );
+
+            const stringChanges = (
+                fs.readFileSync(logFilePath, {encoding: logFileEncoding})
+                .split(logFileSeparatorChar)
+                .slice(0, -1) // remove the last item
+                .map(FromJson)
+                .flat()
+                );
+
+            const compressedStringChanges = [];
+
+            const overwrittenKeysAsStrings = new Set();
+
+            for (let i=stringChanges.length-1; i>=0; i--) {
+
+                const c = stringChanges[i];
+                const [keyAsString, valAsString] = c;
+
+                if (!overwrittenKeysAsStrings.has(keyAsString)) {
+
+                    overwrittenKeysAsStrings.add(keyAsString);
+
+                    if (valAsString !== this._defaultValAsString) {
+
+                        compressedStringChanges.push(c);
+
+                    }
+
+                }
+
+            }
+            //^ filter out changes that:
+            //
+            //      are overwritten by a later change
+            //      are deletions (valAsString === defaultValAsString)
+            //
+            //  (the remaining changes can be represented in the opposite order 
+            //   they happened because they contain no overwritten changes)
+
+            fs.writeFileSync(
+                logFilePath, 
+                AsJson(compressedStringChanges) + logFileSeparatorChar,
+                {encoding: logFileEncoding},
+                );
+
+            for (let i=0; i<compressedStringChanges.length; i++) {
+
+                this._writeChangeEventToState(
+                    this._StringChangeAsChangeEvent(compressedStringChanges[i])
+                    );
+
+            }
 
         }
 
     }
 
-    *_VersionTreeChangesForSyncSince (tree, version) {
+    *_VersionTreeStringChangesSince (tree, version) {
 
         const iterator = tree.upperBound(version);
 
@@ -79,7 +117,7 @@ module.exports = class extends CollabBase {
             return; // speeds up the common case
         }
 
-        const changesForSync = [];
+        const newStringChanges = [];
         let changeCount = 0;
 
         const versionKeysAsStrings = this._versionKeysAsStrings;
@@ -91,28 +129,49 @@ module.exports = class extends CollabBase {
         do {
 
             keyAsString = versionKeysAsStrings.get(version);
-            changesForSync[changeCount++] = [
+            newStringChanges[changeCount++] = [
                 keyAsString, 
                 state.ValAsStringOfKeyAsString(keyAsString),
                 ];
 
         } while ((version = iterator.next()) !== null);
 
-        return changesForSync;
+        return newStringChanges;
 
     }
 
-    _atomicallyWriteIntentAndItsChangesToStorage (intent, changes) {
+    _writeIntentAndReturnItsInfo (intent, intentAsString) {
 
-        this._storage.atomicallyWriteChanges(changes);
+        let i;
+        const info = super._writeIntentAndReturnItsInfo(intent, intentAsString);
+        const changeEvents = info.changeEvents;
+        const changeCount = changeEvents.length;
+        let e;
+        const stringChanges = [];
+
+        for (i=0; i<changeCount; i++) {
+
+            e = changeEvents[i];
+            stringChanges[i] = [e.keyAsString, e.valAsString];
+
+        }
+
+        const stringChangesAsJson = AsJson(stringChanges);
+
+        this._logFileAppendStream.write(stringChangesAsJson);
+        this._logFileAppendStream.write(logFileSeparatorChar);        
+
+        info.stringChangesAsJson = stringChangesAsJson;
+        return info;
 
     }
 
     sync (clientInputAsJson) {
 
         const id = this._id;
-        let changesForSync;
-        let rejectedClientInput = 0; // i.e. false
+        let newStringChanges;
+        let intentStringChangesAsJson;
+        let rejectedInput = false;
 
         try {
 
@@ -133,7 +192,7 @@ module.exports = class extends CollabBase {
 
                 version = clientInput[1];
 
-                changesForSync = this._VersionTreeChangesForSyncSince(
+                newStringChanges = this._VersionTreeStringChangesSince(
                     this._deletionVersionTree, 
                     version,
                     );
@@ -145,9 +204,9 @@ module.exports = class extends CollabBase {
 
             }
 
-            if (changesForSync === undefined) {
+            if (newStringChanges === undefined) {
 
-                changesForSync = this._VersionTreeChangesForSyncSince(
+                newStringChanges = this._VersionTreeStringChangesSince(
                     this._versionTree, 
                     version,
                     );
@@ -156,17 +215,17 @@ module.exports = class extends CollabBase {
             else {
 
                 let i;
-                const moreChangesForSync = this._VersionTreeChangesForSyncSince(
+                const moreStringChanges = this._VersionTreeStringChangesSince(
                     this._versionTree, 
                     version,
                     );
-                let changeCount = changesForSync.length;
+                let changeCount = newStringChanges.length;
 
-                for (i=moreChangesForSync.length-1; i>=0; i--) {
+                for (i=moreStringChanges.length-1; i>=0; i--) {
                 //^ reverse iteration is fine since trees don't contain overwritten 
                 //  changes
 
-                    changesForSync[changeCount++] = moreChangesForSync[i];
+                    newStringChanges[changeCount++] = moreStringChanges[i];
 
                 }
 
@@ -179,42 +238,48 @@ module.exports = class extends CollabBase {
                 let i;
                 const intentsAsStrings = clientInput[2];
                 const intentCount = intentsAsStrings.length;
-                let ias;
+                let s;
+                let n;
                 const IntentFromString = this._IntentFromString;
+                let changes;
+                let changeCount;
+                let stringChanges;
+                let j;
+                let c;
+                intentStringChangesAsJson = intentsAsStrings; 
+                //^ they share the same array because they can and we want the 
+                //  server to be fast
 
                 for (i=0; i<intentCount; i++) {
 
-                    ias = intentsAsStrings[i];
-                    if (typeof ias !== `string`) {
+                    s = intentsAsStrings[i];
+                    if (typeof s !== `string`) {
                         rejectBadInput(new TypeError(
                             `a non-string item was found in intentsAsStrings`
                             ));
                     }
                     try {
-                        intentsAsStrings[i] = IntentFromString(ias);
+                        n = IntentFromString(s);
                     } catch (error) {
                         rejectBadInput(error);
                     }
-
+                    intentStringChangesAsJson[i] = (
+                        this._writeIntentAndReturnItsInfo(n, s)
+                        .stringChangesAsJson
+                        );
 
                 }
 
-                this._writeIntentsToStateAndStorageAndReturnTheirChanges(
-                    intentsAsStrings
-                    );
-                
-                //^ replace every entry in intentsAsStrings with its corresponding 
-                //  intent, then write
-
             }
 
-            //^ do the client's intents
+            //^ add the changes resulting from the client's intents
 
         } catch (error) {
 
-            if (error.rejectedBadInput && error.hasOwnProperty(`reason`)) {
+            if (error.rejectedBadInput === true 
+            && error.hasOwnProperty(`reason`)) {
 
-                rejectedClientInput = 1; // i.e. true
+                rejectedInput = true;
                 console.log(error);
 
             }
@@ -227,16 +292,17 @@ module.exports = class extends CollabBase {
         }
 
         return AsJson(
-            [id, this._currentVersion, changesForSync, rejectedClientInput]
+            [id, this._currentVersion, intentStringChangesAsJson, 
+             newStringChanges, rejectedInput]
             );
 
     }
 
-    _writeChangeToState (change) {
+    _writeChangeEventToState (changeEvent) {
 
-        super._writeChangeToState(change);
+        super._writeChangeEventToState(changeEvent);
 
-        const keyAsString = change.keyAsString;
+        const keyAsString = changeEvent.keyAsString;
         const keyAsStringVersions = keyAsStringVersions;
         const versionKeysAsStrings = this._versionKeysAsStrings;
         const defaultValAsString = defaultValAsString;
@@ -246,7 +312,7 @@ module.exports = class extends CollabBase {
 
             versionKeysAsStrings.delete(oldVersion);
 
-            if (change.oldValAsString === defaultValAsString) {
+            if (changeEvent.oldValAsString === defaultValAsString) {
 
                 this._deletionVersionTree.remove(oldVersion);
 
@@ -265,7 +331,7 @@ module.exports = class extends CollabBase {
 
         versionKeysAsStrings.set(newVersion, keyAsString);
 
-        if (change.valAsString === defaultValAsString) {
+        if (changeEvent.valAsString === defaultValAsString) {
 
             this._deletionVersionTree.insert(newVersion);
 
