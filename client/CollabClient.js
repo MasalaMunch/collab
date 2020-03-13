@@ -121,7 +121,7 @@ module.exports = class extends Collab {
             //^ do removals after because you can't modify storage while 
             //  iterating through it, according to https://stackoverflow.com/a/3138591
 
-            if (intentCount > 0) {
+            if (intentCount !== 0) { // if intentCount > 0
 
                 intentsAsStringsWithNumbers.sort(
                     IntentAsStringWithNumberComparison
