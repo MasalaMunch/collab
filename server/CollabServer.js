@@ -222,8 +222,8 @@ module.exports = class extends CollabBase {
                 let changeCount = newStringChanges.length;
 
                 for (i=moreStringChanges.length-1; i>=0; i--) {
-                //^ reverse iteration is fine since trees don't contain overwritten 
-                //  changes
+                //^ reverse iteration is fine since trees don't contain 
+                //  overwritten changes
 
                     newStringChanges[changeCount++] = moreStringChanges[i];
 
