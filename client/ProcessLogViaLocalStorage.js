@@ -35,7 +35,7 @@ module.exports = class {
 
         keysAndNumbers.sort(KeyAndNumberComparison);
 
-        const entries = keysAndNumbers;
+        const oldEntries = keysAndNumbers;
         //^ they share the same array because they can and we want client 
         //  startup to be fast
 
@@ -43,13 +43,13 @@ module.exports = class {
 
             key = keysAndNumbers[i][0];
 
-            entries[i] = localStorage.getItem(key);
+            oldEntries[i] = localStorage.getItem(key);
 
             localStorage.removeItem(key);
 
         }
 
-        this._oldEntries = entries;
+        this._oldEntries = oldEntries;
 
         this._nextNumber = 0;
 
@@ -69,7 +69,7 @@ module.exports = class {
 
     addToWriteQueue (string) {
 
-        localStorage.set(this._prefix+String(this._nextNumber++), string);
+        localStorage.setItem(this._prefix+String(this._nextNumber++), string);
 
     }
 

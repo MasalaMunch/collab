@@ -17,17 +17,17 @@ module.exports = class {
 
         this._delimiter = delimiter;
 
-        let entriesAsString;
+        let fileAsString;
 
         try {
 
-            entriesAsString = fs.readFileSync(this._path, {encoding});
+            fileAsString = fs.readFileSync(this._path, {encoding});
 
         } 
         catch (error) {
 
             if (error.code === `ENOENT`) {
-                entriesAsString = ``;
+                fileAsString = ``;
             }
             else {
                 throw error;
@@ -35,8 +35,8 @@ module.exports = class {
 
         }
 
-        this._oldEntries = entriesAsString.split(this._delimiter).slice(0, -1);
-        
+        this._oldEntries = fileAsString.split(this._delimiter).slice(0, -1);
+
         fs.writeFileSync(this._path, ``, {encoding});
 
     }
