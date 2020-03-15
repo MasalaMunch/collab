@@ -10,4 +10,6 @@ module.exports = {
     CollabStateBase: require(`./CollabStateBase.js`),
     rejectBadInput: require(`./rejectBadInput.js`),
     sharedCollabConfigProps: require(`./sharedCollabConfigProps.js`),
+    minCollabServerId: require(`./minCollabServerId.js`),
+    FakeLog: require(`./FakeLog.js`),
     };

@@ -1,6 +1,7 @@
 "use strict";
 
-const {assert, Collab, Queue} = require(`@masalamunch/collab-utils`);
+const {assert, Collab, Queue, minCollabServerId} 
+    = require(`@masalamunch/collab-utils`);
 
 const PrefixRegExp = require(`./PrefixRegExp,js`);
 const CollabStateThatStoresVals = require(`./CollabStateThatStoresVals.js`);
@@ -24,8 +25,7 @@ module.exports = class extends Collab {
 
         const {localStoragePrefix} = config;
 
-        this._serverId = 0;
-        //^ i.e. undefined, since serverIds fall within [1, Infinity)
+        this._serverId = minCollabServerId - 1; // i.e. undefined
 
         this._currentVersion = -Infinity;
 
@@ -35,18 +35,18 @@ module.exports = class extends Collab {
         //  the server (their changeEvents might have changed)
         this._unsyncedChangeEvents = new Map();
         //^ a {keyAsString -> changeEvent} map that represents the difference 
-        //  between the synced state and the unsynced (current) state, it's used '
-        //  to revert the client to a synced state before it applies changes 
+        //  between the synced state and the unsynced (current) state; it's used '
+        //  to revert the client to the synced state before it applies changes 
         //  from the server
 
         if (localStoragePrefix === undefined) {
 
             this._storage = fakeStorage;
 
-            this._versionStorageKey = undefined;
+            this._versionLocalStorageKey = undefined;
 
-            this._syncedStoragePrefix = undefined;
-            this._unsyncedStoragePrefix = undefined;
+            this._syncedLocalStoragePrefix = undefined;
+            this._unsyncedLocalStoragePrefix = undefined;
 
             this._minIntentStorageNumber = undefined;
             this._nextIntentStorageNumber = undefined;
@@ -58,38 +58,38 @@ module.exports = class extends Collab {
 
             assert(typeof localStoragePrefix === `string`);
 
-            this._versionStorageKey = localStoragePrefix + `v`;
+            this._versionLocalStorageKey = localStoragePrefix + `v`;
             //^ stores String(currentVersion)
             
-            this._syncedStoragePrefix = localStoragePrefix + `s/`;
+            this._syncedLocalStoragePrefix = localStoragePrefix + `s/`;
             //^ stores a {keyAsString -> AsJson([oldValAsString, version, 
             //  valAsString])} map
-            this._unsyncedStoragePrefix = localStoragePrefix + `u/`;
+            this._unsyncedLocalStoragePrefix = localStoragePrefix + `u/`;
             //^ stores a {String(intentStorageNumber) -> intentAsString} map
 
             this._minIntentStorageNumber = undefined;
             this._nextIntentStorageNumber = 0;
 
             const storage = this._storage;
-            const storedVersion = storage.getItem(this._versionStorageKey);
+            const storedVersion = storage.getItem(this._versionLocalStorageKey);
             if (storedVersion !== null) {
                 this._currentVersion = Number(storedVersion);
             }
 
             let i;
             let key;
-            const syncedRegExp = PrefixRegExp(this._syncedStoragePrefix);
+            const syncedRegExp = PrefixRegExp(this._syncedLocalStoragePrefix);
             let item;
             let valAsString;
             const version = this._currentVersion;
             const defaultValAsString = this._defaultValAsString;
             const removeTheseKeys = [];
             let removeCount = 0;
-            const syncedPrefixLength = this._syncedStoragePrefix.length;
-            const unsyncedRegExp = PrefixRegExp(this._unsyncedStoragePrefix);
+            const syncedPrefixLength = this._syncedLocalStoragePrefix.length;
+            const unsyncedRegExp = PrefixRegExp(this._unsyncedLocalStoragePrefix);
             const intentsAsStringsWithNumbers = [];
             let intentCount = 0;
-            const unsyncedPrefixLength = this._unsyncedStoragePrefix.length;
+            const unsyncedPrefixLength = this._unsyncedLocalStoragePrefix.length;
 
             for (i=storage.length-1; i>=0; i--) {
 

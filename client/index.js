@@ -1,7 +1,30 @@
 "use strict";
 
-const {ClassFactory} = require(`@masalamunch/collab-utils`);
+const {assert, sharedCollabConfigProps} 
+    = require(`@masalamunch/collab-utils`);
 
-const CollabClientClassInterface = require(`./CollabClientClassInterface.js`);
+const CollabClient = require(`./CollabClient.js`);
 
-module.exports = ClassFactory(CollabClientClassInterface);
+module.exports = ClassFactory(class {
+
+    constructor (collabConfig) {
+
+        this._collabConfig = collabConfig;
+        
+    }
+
+    Client (collabClientConfig) {
+
+        for (const prop in collabClientConfig) {
+            assert(!sharedCollabConfigProps.has(prop));
+        }
+
+        const config = {};
+        Object.assign(config, this._collabConfig);
+        Object.assign(config, collabClientConfig);
+
+        return new CollabClient(config);
+
+    }
+
+});

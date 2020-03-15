@@ -6,11 +6,16 @@ const fakeStream = new require(`stream`).PassThrough();
 
 const RbTree = require(`bintrees`).RBTree;
 
-const {assert, Collab, rejectBadInput, AsJson, FromJson} 
+const {assert, Collab, rejectBadInput, AsJson, FromJson, minCollabServerId}
     = require(`@masalamunch/collab-utils`);
 
 const CollabStateThatStoresValsAsStrings 
     = require(`./CollabStateThatStoresValsAsStrings.js`);
+const 
+const CollabServerStorageViaLogFile 
+    = require(`./CollabServerStorageViaLogFile.js`);
+const dummyCollabServerStorage 
+    = require(`dummyCollabServerStorage.js`);
 
 const logFileEncoding = `utf8`;
 const logFileSeparatorChar = `\n`;
@@ -28,7 +33,22 @@ module.exports = class extends Collab {
 
         super(config);
 
-        const {storagePath} = config;
+        let {storagePath, collabServerStorage} = config;
+
+        if (collabServerStorage === undefined) {
+
+            if (storagePath === undefined) {
+
+                collabServerStorage = dummyCollabServerStorage;
+
+            }
+            else {
+             
+                collabServerStorage = new CollabServerStorageViaLogFile({});
+
+            }
+            
+        }
 
         this._keyAsStringVersions = new Map();
         this._versionKeysAsStrings = new Map();
@@ -38,10 +58,11 @@ module.exports = class extends Collab {
 
         this._currentVersion = firstVersion;
 
+
         if (storagePath === undefined) {
 
             this._logFileAppendStream = fakeStream;
-            this._id = 1 + Math.random();
+            this._id = minCollabServerId + Math.random();
 
         }
         else {
@@ -65,7 +86,7 @@ module.exports = class extends Collab {
             } catch (error) {
 
                 if (error.code === `ENOENT`) { // if file doesn't exist
-                    this._id = 1;
+                    this._id = minCollabServerId;
                 }
                 else {
                     throw error;

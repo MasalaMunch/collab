@@ -11,3 +11,6 @@ module.exports = new Set([
     "IntentAsString",
     "IntentFromString",
     ]);
+
+//^ if the server and the client don't share these, data inconsistency might 
+//  occur
