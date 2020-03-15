@@ -4,11 +4,16 @@ const JoinedPaths = require(`path`).join;
 
 const RbTree = require(`bintrees`).RBTree;
 
-const {assert, Collab, rejectBadInput, AsJson, FromJson, minCollabServerId}
+const {assert, Collab, rejectBadInput, AsJson, FromJson}
     = require(`@masalamunch/collab-utils`);
 
+const ProcessLogViaFile = require(`./ProcessLogViaFile.js`);
 const CollabStateThatStoresValsAsStrings 
     = require(`./CollabStateThatStoresValsAsStrings.js`);
+const NewCollabServerIdViaMathDotRandom 
+    = require(`./NewCollabServerIdViaMathDotRandom.js`);
+const NewCollabServerIdViaNumberFile 
+    = require(`./NewCollabServerIdViaNumberFile.js`);
 
 const VersionComparison = (a, b) => a - b;
 
@@ -20,23 +25,35 @@ module.exports = class extends Collab {
 
         config.CollabState = CollabStateThatStoresValsAsStrings;
 
+        const {storagePath} = config;
+
+        if (storagePath === undefined) {
+
+            config.stringChangesAsJsonLog = undefined;
+
+        }
+        else {
+
+            config.stringChangesAsJsonLog = new ProcessLogViaFile({
+                path: JoinedPaths(storagePath, `log`),
+                delimiter: `\n`,
+                });
+
+        }
+
         super(config);
 
-        let {storagePath, collabServerStorage} = config;
+        if (storagePath === undefined) {
 
-        if (collabServerStorage === undefined) {
+            this._id = NewCollabServerIdViaMathDotRandom();
 
-            if (storagePath === undefined) {
+        }
+        else {
 
-                collabServerStorage = dummyCollabServerStorage;
+            this._id = NewCollabServerIdViaNumberFile({
+                path: JoinedPaths(storagePath, `id`)
+                });
 
-            }
-            else {
-             
-                collabServerStorage = new CollabServerStorageViaLogFile({});
-
-            }
-            
         }
 
         this._keyAsStringVersions = new Map();
@@ -47,97 +64,7 @@ module.exports = class extends Collab {
 
         this._currentVersion = firstVersion;
 
-
-        if (storagePath === undefined) {
-
-            this._logFileAppendStream = fakeStream;
-            this._id = minCollabServerId + Math.random();
-
-        }
-        else {
-
-            const logFilePath = JoinedPaths(storagePath, `log`);
-
-            this._logFileAppendStream = fs.createWriteStream(
-                logFilePath, 
-                {flags: `a`, encoding: logFileEncoding},
-                );
-
-            const idFilePath = JoinedPaths(storagePath, `id`);
-
-            try {
-
-                this._id = 1 + Number(fs.readFileSync(
-                    idFilePath, 
-                    {encoding: idFileEncoding},
-                    ));
-
-            } catch (error) {
-
-                if (error.code === `ENOENT`) { // if file doesn't exist
-                    this._id = minCollabServerId;
-                }
-                else {
-                    throw error;
-                }
-
-            }
-
-            fs.writeFileSync(
-                idFilePath, 
-                String(this._id), 
-                {encoding: idFileEncoding},
-                );
-
-            const stringChanges = (
-                fs.readFileSync(logFilePath, {encoding: logFileEncoding})
-                .split(logFileSeparatorChar)
-                .slice(0, -1) // remove the last item
-                .map(FromJson)
-                .flat()
-                );
-
-            const overwrittenKeysAsStrings = new Set();
-
-            const compressedStringChanges = [];
-
-            for (let i=stringChanges.length-1; i>=0; i--) {
-
-                const c = stringChanges[i];
-                const [keyAsString, valAsString] = c;
-
-                if (!overwrittenKeysAsStrings.has(keyAsString)) {
-
-                    overwrittenKeysAsStrings.add(keyAsString);
-
-                    if (valAsString !== this._defaultValAsString) {
-
-                        this._writeChangeEventToState(
-                            this._StringChangeAsChangeEvent(c)
-                            );
-
-                        compressedStringChanges.push(c);
-
-                    }
-
-                }
-
-            }
-            //^ filter out changes that:
-            //
-            //      are overwritten by a later change
-            //      are deletions (valAsString === defaultValAsString)
-            //
-            //  (the remaining changes can be written in the opposite order 
-            //   they happened because they contain no overwritten changes)
-
-            fs.writeFileSync(
-                logFilePath, 
-                AsJson(compressedStringChanges) + logFileSeparatorChar,
-                {encoding: logFileEncoding},
-                );
-
-        }
+        this._loadChangeLog();
 
     }
 
@@ -149,7 +76,7 @@ module.exports = class extends Collab {
             return 0; // i.e. undefined, speeds up the common case
         }
 
-        const newStringChanges = [];
+        const stringChanges = [];
         let changeCount = 0;
 
         const versionKeysAsStrings = this._versionKeysAsStrings;
@@ -161,14 +88,14 @@ module.exports = class extends Collab {
         do {
 
             keyAsString = versionKeysAsStrings.get(version);
-            newStringChanges[changeCount++] = [
+            stringChanges[changeCount++] = [
                 keyAsString, 
                 state.ValAsStringOfKeyAsString(keyAsString),
                 ];
 
         } while ((version = iterator.next()) !== null);
 
-        return newStringChanges;
+        return stringChanges;
 
     }
 
@@ -192,10 +119,10 @@ module.exports = class extends Collab {
 
         const stringChangesAsJson = AsJson(stringChanges);
 
-        this._logFileAppendStream.write(stringChangesAsJson);
-        this._logFileAppendStream.write(logFileSeparatorChar);        
+        this._stringChangesAsJsonLog.addToWriteQueue(stringChangesAsJson);
 
         info.stringChangesAsJson = stringChangesAsJson;
+
         return info;
 
     }
@@ -286,8 +213,8 @@ module.exports = class extends Collab {
                 let j;
                 let c;
                 intentStringChangesAsJson = intentsAsStrings; 
-                //^ they share the same array because they can and we want the 
-                //  server to be fast
+                //^ they share the same array because they can and we want  
+                //  server sync to be fast
 
                 for (i=0; i<intentCount; i++) {
 

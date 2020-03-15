@@ -7,6 +7,7 @@ const AsJsonWithSortedKeys = require(`./AsJsonWithSortedKeys.js`);
 const FromJson = require(`./FromJson.js`);
 const rejectBadInput = require(`./rejectBadInput.js`);
 const doNothing = require(`./doNothing.js`);
+const FakeProcessLog = require(`./FakeProcessLog.js`);
 
 const DefaultIntentAsChanges = (intent, state, derivedState) => intent;
 
@@ -15,6 +16,7 @@ const emptyArraySizeApproximationInChanges = 1;
 module.exports = class {
 
     constructor ({CollabState,
+                  stringChangesAsJsonLog,
                   rememberThisManyChanges=0,
                   IntentAsChanges=DefaultIntentAsChanges, 
                   updateDerivedState=doNothing, 
@@ -79,6 +81,11 @@ module.exports = class {
         this._actionQueue = new Queue();
         this._nextAction = Number.MIN_SAFE_INTEGER;
         //^ remember some local actions (useful for implementing undo-redo)
+
+        this._stringChangesAsJsonLog = (
+            stringChangesAsJsonLog === undefined?
+            new FakeProcessLog() : stringChangesAsJsonLog
+            );
 
     }
 
@@ -248,6 +255,64 @@ module.exports = class {
 
             };
             
+    }
+
+    _loadChangeLog () {
+
+        const stringChangesAsJsonLog = this._stringChangesAsJsonLog;
+
+        const arrayOfStringChangesAsJson = stringChangesAsJsonLog.OldEntries();
+        stringChangesAsJsonLog.deleteOldEntries();
+
+        let i;
+        let stringChanges;
+        let j;
+        let c;
+        let keyAsString;
+        const overwrittenKeysAsStrings = new Set();
+        const defaultValAsString = this._defaultValAsString;
+        const compressedStringChanges = [];
+        let compressedChangeCount = 0;
+
+        for (i=arrayOfStringChangesAsJson.length-1; i>=0; i--) {
+
+            stringChanges = FromJson(arrayOfStringChangesAsJson[i]);
+
+            for (j=stringChanges.length-1; j>=0; j--) {
+
+                c = stringChanges[j]; // contains [keyAsString, valAsString]
+
+                keyAsString = c[0];
+
+                if (!overwrittenKeysAsStrings.has(keyAsString)) {
+
+                    overwrittenKeysAsStrings.add(keyAsString);
+
+                    if (c[1] !== defaultValAsString) {
+
+                        this._writeChangeEventToState(
+                            this._StringChangeAsChangeEvent(c)
+                            );
+
+                        compressedStringChanges[compressedChangeCount++] = c;
+
+                    }
+
+                }
+
+            }
+
+        }
+        //^ filter out changes that:
+        //
+        //      are overwritten by a later change
+        //      are deletions (valAsString === defaultValAsString)
+        //
+        //  (the remaining changes can be written in the opposite order 
+        //   they happened because they contain no overwritten changes)
+
+        stringChangesAsJsonLog.addToWriteQueue(AsJson(compressedStringChanges));
+
     }
 
     _writeChangeEventToState (changeEvent) {

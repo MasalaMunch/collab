@@ -7,17 +7,17 @@ const {minCollabServerId, stringFileEncoding}
 
 const stringFileOptions = {encoding: stringFileEncoding};
 
-module.exports = (file) => {
+module.exports = ({path}) => {
 
     let newId;
 
     try {
 
-        newId = 1 + Number(fs.readFileSync(file, stringFileOptions));
+        newId = 1 + Number(fs.readFileSync(path, stringFileOptions));
 
     } catch (error) {
 
-        if (error.code === `ENOENT`) { // if file doesn't exist
+        if (error.code === `ENOENT`) { // if path doesn't exist
             newId = minCollabServerId;
         }
         else {
@@ -26,7 +26,7 @@ module.exports = (file) => {
 
     }
 
-    fs.writeFileSync(file, String(newId), stringFileOptions);
+    fs.writeFileSync(path, String(newId), stringFileOptions);
 
     return newId;
 
