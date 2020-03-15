@@ -9,13 +9,13 @@ module.exports = class {
     constructor ({path, delimiter}) {
 
         this._path = path;
-
-        this._appendStream = fs.createWriteStream(
-            this._path, 
-            {encoding: stringFileEncoding, flags: `a`},
-            );
-
         this._delimiter = delimiter;
+
+        this._appendStream = undefined;
+
+    }
+
+    Strings () {
 
         let fileAsString;
 
@@ -38,21 +38,26 @@ module.exports = class {
 
         }
 
-        this._oldEntries = fileAsString.split(this._delimiter).slice(0, -1);
+        const strings = fileAsString.split(this._delimiter);
+
+        strings.pop();
+
+        return strings;
+
+    }
+
+    clear () {
 
         fs.writeFileSync(this._path, ``, {encoding: stringFileEncoding});
 
     }
 
-    OldEntries () {
+    initializeWriteQueue () {
 
-        return this._oldEntries;
-
-    }
-
-    deleteOldEntries () {
-
-        this._oldEntries = undefined;
+        this._appendStream = fs.createWriteStream(
+            this._path, 
+            {encoding: stringFileEncoding, flags: `a`},
+            );
 
     }
 

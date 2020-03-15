@@ -20,6 +20,8 @@ module.exports = class extends Collab {
 
         this._currentVersion = -Infinity;
 
+        //TODO oops, you also need to store versions with client changes!
+
         this._unsyncedIntentsAsStrings = [];
         this._unsyncedActions = [];
         //^ used to fix the action history after these actions are synced with 

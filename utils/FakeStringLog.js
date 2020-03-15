@@ -2,11 +2,14 @@
 
 module.exports = class {
 
-    OldEntries () {
+    Strings () {
         return [];
     }
 
-    deleteOldEntries () {
+    clear () {
+    }
+
+    initializeWriteQueue () {
     }
 
     addToWriteQueue () {
