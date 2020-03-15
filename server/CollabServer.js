@@ -1,8 +1,6 @@
 "use strict";
 
-const fs = require(`fs`);
 const JoinedPaths = require(`path`).join;
-const fakeStream = new require(`stream`).PassThrough();
 
 const RbTree = require(`bintrees`).RBTree;
 
@@ -11,15 +9,6 @@ const {assert, Collab, rejectBadInput, AsJson, FromJson, minCollabServerId}
 
 const CollabStateThatStoresValsAsStrings 
     = require(`./CollabStateThatStoresValsAsStrings.js`);
-const 
-const CollabServerStorageViaLogFile 
-    = require(`./CollabServerStorageViaLogFile.js`);
-const dummyCollabServerStorage 
-    = require(`dummyCollabServerStorage.js`);
-
-const logFileEncoding = `utf8`;
-const logFileSeparatorChar = `\n`;
-const idFileEncoding = `utf8`;
 
 const VersionComparison = (a, b) => a - b;
 

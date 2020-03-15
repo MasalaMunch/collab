@@ -2,9 +2,10 @@
 
 const fs = require(`fs`);
 
-const {minCollabServerId} = require(`@masalamunch/collab-utils`);
+const {minCollabServerId, stringFileEncoding} 
+    = require(`@masalamunch/collab-utils`);
 
-const fileOptions = {encoding: `utf8`};
+const stringFileOptions = {encoding: stringFileEncoding};
 
 module.exports = (file) => {
 
@@ -12,7 +13,7 @@ module.exports = (file) => {
 
     try {
 
-        newId = 1 + Number(fs.readFileSync(file, fileOptions));
+        newId = 1 + Number(fs.readFileSync(file, stringFileOptions));
 
     } catch (error) {
 
@@ -25,7 +26,7 @@ module.exports = (file) => {
 
     }
 
-    fs.writeFileSync(file, String(newId), fileOptions);
+    fs.writeFileSync(file, String(newId), stringFileOptions);
 
     return newId;
 

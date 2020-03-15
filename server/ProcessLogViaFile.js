@@ -2,7 +2,7 @@
 
 const fs = require(`fs`);
 
-const encoding = `utf8`;
+const {stringFileEncoding} = require(`@masalamunch/collab-utils`);
 
 module.exports = class {
 
@@ -12,7 +12,7 @@ module.exports = class {
 
         this._appendStream = fs.createWriteStream(
             this._path, 
-            {encoding, flags: `a`},
+            {encoding: stringFileEncoding, flags: `a`},
             );
 
         this._delimiter = delimiter;
@@ -21,7 +21,10 @@ module.exports = class {
 
         try {
 
-            fileAsString = fs.readFileSync(this._path, {encoding});
+            fileAsString = fs.readFileSync(
+                this._path, 
+                {encoding: stringFileEncoding},
+                );
 
         } 
         catch (error) {
@@ -37,7 +40,7 @@ module.exports = class {
 
         this._oldEntries = fileAsString.split(this._delimiter).slice(0, -1);
 
-        fs.writeFileSync(this._path, ``, {encoding});
+        fs.writeFileSync(this._path, ``, {encoding: stringFileEncoding});
 
     }
 

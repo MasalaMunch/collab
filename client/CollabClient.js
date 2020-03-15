@@ -1,19 +1,9 @@
 "use strict";
 
-const {assert, Collab, Queue, minCollabServerId} 
-    = require(`@masalamunch/collab-utils`);
+const {assert, Collab, Queue} = require(`@masalamunch/collab-utils`);
 
-const PrefixRegExp = require(`./PrefixRegExp,js`);
 const CollabStateThatStoresVals = require(`./CollabStateThatStoresVals.js`);
-
-const fakeStorage = {
-
-    setItem: () => undefined,
-    removeItem: () => undefined,
-
-    };
-
-const IntentAsStringWithNumberComparison = (a, b) => a[1] - b[1];
+const nonexistentCollabServerId = require(`./nonexistentCollabServerId.js`);
 
 module.exports = class extends Collab {
 
@@ -25,7 +15,7 @@ module.exports = class extends Collab {
 
         const {localStoragePrefix} = config;
 
-        this._serverId = minCollabServerId - 1; // i.e. undefined
+        this._serverId = nonexistentCollabServerId;
 
         this._currentVersion = -Infinity;
 

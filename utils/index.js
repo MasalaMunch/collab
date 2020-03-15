@@ -9,7 +9,7 @@ module.exports = {
     Collab: require(`./Collab.js`),
     CollabStateBase: require(`./CollabStateBase.js`),
     rejectBadInput: require(`./rejectBadInput.js`),
-    sharedCollabConfigProps: require(`./sharedCollabConfigProps.js`),
     minCollabServerId: require(`./minCollabServerId.js`),
-    FakeLog: require(`./FakeLog.js`),
+    FakeProcessLog: require(`./FakeProcessLog.js`),
+    stringFileEncoding: require(`./stringFileEncoding.js`),
     };
