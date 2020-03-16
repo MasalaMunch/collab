@@ -4,15 +4,15 @@ const JoinedPaths = require(`path`).join;
 
 const RbTree = require(`bintrees`).RBTree;
 
-const {assert, Collab, rejectBadInput, AsJson, FromJson, FakeLog, StringLog}
-    = require(`@masalamunch/collab-utils`);
+const {assert, Collab, rejectBadInput, AsJson, FromJson, FakeStoredStringLog, 
+       StoredStringLog} = require(`@masalamunch/collab-utils`);
 
 const CollabStateThatStoresValsAsStrings 
     = require(`./CollabStateThatStoresValsAsStrings.js`);
 const NewCollabServerIdViaMathDotRandom 
     = require(`./NewCollabServerIdViaMathDotRandom.js`);
-const NewCollabServerIdViaNumberFile 
-    = require(`./NewCollabServerIdViaNumberFile.js`);
+const NewCollabServerIdViaStorage
+    = require(`./NewCollabServerIdViaStorage.js`);
 
 const VersionComparison = (a, b) => a - b;
 
@@ -30,18 +30,18 @@ module.exports = class extends Collab {
 
         if (storagePath === undefined) {
 
+            this._stringChangesAsJsonStorage = new FakeStoredStringLog();
             this._id = NewCollabServerIdViaMathDotRandom();
-            this._stringChangesAsJsonLog = new FakeLog();
 
         }
         else {
 
-            this._id = NewCollabServerIdViaNumberFile({
-                path: JoinedPaths(storagePath, `id`),
-                });
-            this._stringChangesAsJsonLog = new StringLogViaFile({
+            this._stringChangesAsJsonStorage = new StoredStringLog({
                 path: JoinedPaths(storagePath, `log`),
                 delimiter: `\n`,
+                });
+            this._id = NewCollabServerIdViaStorage({
+                path: JoinedPaths(storagePath, `id`),
                 });
 
         }
@@ -54,10 +54,10 @@ module.exports = class extends Collab {
 
         this._currentVersion = firstVersion;
 
-        const stringChangesAsJsonLog = this._stringChangesAsJsonLog;
+        const stringChangesAsJsonStorage = this._stringChangesAsJsonStorage;
 
         let i;
-        const stringChangesAsJsonArray = stringChangesAsJsonLog.Entries();
+        const stringChangesAsJsonArray = stringChangesAsJsonStorage.Entries();
         const changesCount = stringChangesAsJsonArray.length;
         const stringChangesArray = [];
 
@@ -72,10 +72,10 @@ module.exports = class extends Collab {
             );
 
         this._writeStringChangesToState(compressedStringChanges);
+        
+        stringChangesAsJsonStorage.overwrite(AsJson(compressedStringChanges));
 
-        stringChangesAsJsonLog.clear();
-        stringChangesAsJsonLog.initializeWriteQueue();
-        stringChangesAsJsonLog.addToWriteQueue(AsJson(compressedStringChanges));
+        stringChangesAsJsonStorage.initializeWriteQueue();
 
     }
 
@@ -131,7 +131,7 @@ module.exports = class extends Collab {
 
         const stringChangesAsJson = AsJson(stringChanges);
 
-        this._stringChangesAsJsonLog.addToWriteQueue(stringChangesAsJson);
+        this._stringChangesAsJsonStorage.addToWriteQueue(stringChangesAsJson);
 
         info.stringChangesAsJson = stringChangesAsJson;
 

@@ -1,6 +1,6 @@
 "use strict";
 
-const {assert, Collab, FakeLog, StringLog} 
+const {assert, Collab, FakeStoredStringLog, StoredStringLog} 
     = require(`@masalamunch/collab-utils`);
 
 const CollabStateThatStoresVals = require(`./CollabStateThatStoresVals.js`);

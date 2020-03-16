@@ -6,9 +6,9 @@ module.exports = {
     ClassFactory: require(`./ClassFactory.js`),
     Collab: require(`./Collab.js`),
     CollabStateBase: require(`./CollabStateBase.js`),
-    FakeLog: require(`./FakeLog.js`),
+    FakeStoredStringLog: require(`./FakeStoredStringLog.js`),
     FromJson: require(`./FromJson.js`),
     minCollabServerId: require(`./minCollabServerId.js`),
     rejectBadInput: require(`./rejectBadInput.js`), 
-    StringLog: require(`./StringLog.js`),
+    StoredStringLog: require(`./StoredStringLog.js`),
     };
