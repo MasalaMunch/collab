@@ -20,17 +20,18 @@ module.exports = class extends Collab {
 
         this._currentVersion = -Infinity;
 
-        //TODO oops, you also need to store versions with client changes!
-
         this._unsyncedIntentsAsStrings = [];
         this._unsyncedActions = [];
         //^ used to fix the action history after these actions are synced with 
-        //  the server (their changeEvents might have changed)
+        //  the server (their changeEvents might have changed!)
         this._unsyncedChangeEvents = new Map();
         //^ a {keyAsString -> changeEvent} map that represents the difference 
-        //  between the synced state and the unsynced (current) state; it's used '
+        //  between the synced state and the unsynced (current) state, it's used '
         //  to revert the client to the synced state before it applies changes 
         //  from the server
+
+        //bm
+
 
         if (localStoragePrefix === undefined) {
 

@@ -56,7 +56,7 @@ module.exports = class extends Collab {
         this._currentVersion = firstVersion;
 
         const stringChangesAsJsonLog = this._stringChangesAsJsonLog;
-        
+
         let i;
         const stringChangesAsJsonArray = stringChangesAsJsonLog.Strings();
         const changesCount = stringChangesAsJsonArray.length;

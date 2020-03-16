@@ -117,11 +117,10 @@ module.exports = class {
         assert(typeof IntentAsChanges === `function`);
         this._IntentAsChanges = IntentAsChanges;
 
+        this._shouldRememberLocalActions = shouldRememberLocalActions;
         this._nextAction = Number.MIN_SAFE_INTEGER;
         this._actionIntents = new Map();
         this._actionChangeEvents = new Map();
-
-        this._shouldRememberLocalActions = shouldRememberLocalActions;
         //^ remembering local actions is useful for implementing undo-redo
 
     }
