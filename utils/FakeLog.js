@@ -9,6 +9,9 @@ module.exports = class {
     clear () {
     }
 
+    overwrite () {
+    }
+
     initializeWriteQueue () {
     }
 

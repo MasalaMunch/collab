@@ -1,6 +1,6 @@
 "use strict";
 
-const {assert, Collab, Queue, FakeProcessLog} 
+const {assert, Collab, FakeProcessLog} 
     = require(`@masalamunch/collab-utils`);
 
 const CollabStateThatStoresVals = require(`./CollabStateThatStoresVals.js`);
@@ -29,9 +29,6 @@ module.exports = class extends Collab {
         //  between the synced state and the unsynced (current) state, it's used '
         //  to revert the client to the synced state before it applies changes 
         //  from the server
-
-        //bm
-
 
         if (localStoragePrefix === undefined) {
 

@@ -1,14 +1,15 @@
 "use strict";
 
 module.exports = {
-    assert: require(`./assert.js`),
-    Queue: require(`./Queue.js`),
-    ClassFactory: require(`./ClassFactory.js`),
     AsJson: require(`./AsJson.js`),
-    FromJson: require(`./FromJson.js`),
+    assert: require(`./assert.js`),
+    ClassFactory: require(`./ClassFactory.js`),
     Collab: require(`./Collab.js`),
     CollabStateBase: require(`./CollabStateBase.js`),
-    rejectBadInput: require(`./rejectBadInput.js`),
-    minCollabServerId: require(`./minCollabServerId.js`),
     FakeLog: require(`./FakeLog.js`),
+    FromJson: require(`./FromJson.js`),
+    minCollabServerId: require(`./minCollabServerId.js`),
+    rejectBadInput: require(`./rejectBadInput.js`), 
+    StringLogViaFile: require(`./StringLogViaFile.js`),
+    StringLogViaLocalStorage: require(`./StringLogViaLocalStorage.js`),
     };

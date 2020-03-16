@@ -1,14 +1,13 @@
 "use strict";
 
-const {assert} = require(`@masalamunch/collab-utils`);
-
+const assert = require(`./assert.js`);
 const PrefixRegExp = require(`./PrefixRegExp.js`);
 
 module.exports = class {
 
-    constructor ({prefix}) {
+    constructor ({path}) {
 
-        this._prefix = prefix;
+        this._prefix = (path[path.length-1] === `/`)? path : path+`/`;
 
         let i;
         const localStorageLength = localStorage.length;
@@ -35,33 +34,33 @@ module.exports = class {
 
         keysAndNumbers.sort(KeyAndNumberComparison);
 
-        const strings = [];
+        const entries = [];
 
         for (i=0; i<count; i++) {
 
-            strings[i] = localStorage.getItem(keysAndNumbers[i][0]);
+            entries[i] = localStorage.getItem(keysAndNumbers[i][0]);
 
         }
 
         this._keysAndNumbers = keysAndNumbers;
         this._count = count;
-        this._strings = strings;
+        this._entries = entries;
 
-        this._hasInitializedWriteQueue = false;
+        this._hasBeenModified = false;
 
     }
 
     Entries () {
 
-        assert(!this._hasInitializedWriteQueue);
+        assert(!this._hasBeenModified);
 
-        return this._strings;
+        return this._entries;
 
     }
 
     clear () {
 
-        assert(!this._hasInitializedWriteQueue);
+        assert(!this._hasBeenModified);
 
         const keysAndNumbers = this._keysAndNumbers;
 
@@ -75,7 +74,17 @@ module.exports = class {
 
         this._keysAndNumbers = [];
         this._count = 0;
-        this._strings = [];
+        this._entries = [];
+
+    }
+
+    overwrite (entry) {
+
+        this.clear();
+
+        this.initializeWriteQueue();
+
+        this.addToWriteQueue(entry);
 
     }
 
@@ -83,9 +92,9 @@ module.exports = class {
 
         this._keysAndNumbers = undefined;
 
-        this._strings = undefined;
+        this._entries = undefined;
 
-        this._hasInitializedWriteQueue = true;
+        this._hasBeenModified = true;
 
     }
 
