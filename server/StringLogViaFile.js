@@ -2,7 +2,7 @@
 
 const fs = require(`fs`);
 
-const {stringFileEncoding} = require(`@masalamunch/collab-utils`);
+const stringFileEncoding = require(`./stringFileEncoding.js`);
 
 module.exports = class {
 

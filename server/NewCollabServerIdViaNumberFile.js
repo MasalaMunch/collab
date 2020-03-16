@@ -2,10 +2,9 @@
 
 const fs = require(`fs`);
 
-const {minCollabServerId, stringFileEncoding} 
-    = require(`@masalamunch/collab-utils`);
+const {minCollabServerId} = require(`@masalamunch/collab-utils`);
 
-const stringFileOptions = {encoding: stringFileEncoding};
+const stringFileEncoding = require(`./stringFileEncoding.js`);
 
 module.exports = ({path}) => {
 
@@ -13,11 +12,11 @@ module.exports = ({path}) => {
 
     try {
 
-        newId = 1 + Number(fs.readFileSync(path, stringFileOptions));
+        newId = 1 + Number(fs.readFileSync(path, {encoding: stringFileEncoding}));
 
     } catch (error) {
 
-        if (error.code === `ENOENT`) { // if path doesn't exist
+        if (error.code === `ENOENT`) {
             newId = minCollabServerId;
         }
         else {
@@ -26,7 +25,7 @@ module.exports = ({path}) => {
 
     }
 
-    fs.writeFileSync(path, String(newId), stringFileOptions);
+    fs.writeFileSync(path, String(newId), {encoding: stringFileEncoding});
 
     return newId;
 

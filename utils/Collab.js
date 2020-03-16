@@ -7,17 +7,63 @@ const AsJsonWithSortedKeys = require(`./AsJsonWithSortedKeys.js`);
 const FromJson = require(`./FromJson.js`);
 const rejectBadInput = require(`./rejectBadInput.js`);
 const doNothing = require(`./doNothing.js`);
-const FakeProcessLog = require(`./FakeProcessLog.js`);
+const FakeStringLog = require(`./FakeStringLog.js`);
 
 const DefaultIntentAsChanges = (intent, state, derivedState) => intent;
 
-const emptyArraySizeApproximationInChanges = 1;
-
 module.exports = class {
 
+    _CompressedStringChanges (stringChangesArray) {
+
+        let i;
+        let stringChanges;
+        let j;
+        let c;
+        let keyAsString;
+        const overwrittenKeysAsStrings = new Set();
+        const defaultValAsString = this._defaultValAsString;
+        const compressedStringChanges = [];
+        let compressedChangeCount = 0;
+
+        for (i=stringChangesArray.length-1; i>=0; i--) {
+
+            stringChanges = stringChangesArray[i];
+
+            for (j=stringChanges.length-1; j>=0; j--) {
+
+                c = stringChanges[j]; // contains [keyAsString, valAsString]
+
+                keyAsString = c[0];
+
+                if (!overwrittenKeysAsStrings.has(keyAsString)) {
+
+                    overwrittenKeysAsStrings.add(keyAsString);
+
+                    if (c[1] !== defaultValAsString) {
+
+                        compressedStringChanges[compressedChangeCount++] = c;
+
+                    }
+
+                }
+
+            }
+
+        }
+        //^ filter out changes that:
+        //
+        //      are overwritten by a later change
+        //      are deletions (valAsString === defaultValAsString)
+        //
+        //  (the remaining changes can be returned in the opposite order 
+        //   they happened because they contain no overwritten changes)
+
+        return compressedStringChanges;
+
+    }
+
     constructor ({CollabState,
-                  stringChangesAsJsonLog,
-                  rememberThisManyChanges=0,
+                  shouldRememberLocalActions=false,
                   IntentAsChanges=DefaultIntentAsChanges, 
                   updateDerivedState=doNothing, 
                   defaultVal=null, 
@@ -50,6 +96,7 @@ module.exports = class {
         this._defaultVal = defaultVal;
 
         const defaultValAsString = this._ValAsString(this._defaultVal);
+
         assert(typeof defaultValAsString === `string`);
         this._defaultValAsString = defaultValAsString;
 
@@ -70,22 +117,12 @@ module.exports = class {
         assert(typeof IntentAsChanges === `function`);
         this._IntentAsChanges = IntentAsChanges;
 
-        assert(
-            typeof rememberThisManyChanges === `number` 
-            && rememberThisManyChanges >= 0
-            );
-        this._rememberThisManyChanges = rememberThisManyChanges;
-        this._changeCount = 0;
-        this._actionChangeEvents = new Map();
-        this._actionIntents = new Map();
-        this._actionQueue = new Queue();
         this._nextAction = Number.MIN_SAFE_INTEGER;
-        //^ remember some local actions (useful for implementing undo-redo)
+        this._actionIntents = new Map();
+        this._actionChangeEvents = new Map();
 
-        this._stringChangesAsJsonLog = (
-            stringChangesAsJsonLog === undefined?
-            new FakeProcessLog() : stringChangesAsJsonLog
-            );
+        this._shouldRememberLocalActions = shouldRememberLocalActions;
+        //^ remembering local actions is useful for implementing undo-redo
 
     }
 
@@ -118,30 +155,10 @@ module.exports = class {
             this._writeIntentAndReturnItsInfo(intent, intentAsString, false)
             );
 
-        this._changeCount += (
-            changeEvents.length 
-            + emptyArraySizeApproximationInChanges
-            );
+        if (this._shouldRememberLocalActions) {
 
-        this._actionQueue.add(action);
-        this._actionChangeEvents.set(action, changeEvents);
-        this._actionIntents.set(action, intent);
-
-        while (this._changeCount > this._rememberThisManyChanges) {
-        //^ don't need to check if actionQueue is empty because that would imply
-        //  that changeCount is 0, which would make the while condition false
-        //  because rememberThisManyChanges is not negative
-
-            const forgetThisAction = this._actionQueue.OldestItem();
-
-            this._changeCount -= (
-                this._actionChangeEvents.get(forgetThisAction).length 
-                + emptyArraySizeApproximationInChanges
-                );
-
-            this._actionQueue.deleteOldestItem();
-            this._actionChangeEvents.delete(forgetThisAction);
-            this._actionIntents.delete(forgetThisAction);
+            this._actionIntents.set(action, intent);
+            this._actionChangeEvents.set(action, changeEvents);
 
         }
 
@@ -237,81 +254,37 @@ module.exports = class {
 
     }
 
-    _StringChangeAsChangeEvent (stringChange) {
-
-        const [keyAsString, valAsString] = stringChange;
-        const state = this._state;
-
-        return {
-
-            keyAsString,
-            valAsString,
-
-            key: this._KeyFromString(keyAsString),
-            val: this._ValFromString(valAsString),
-
-            oldVal: state.ValOfKeyAsString(keyAsString),
-            oldValAsString: state.ValAsStringOfKeyAsString(keyAsString),
-
-            };
-            
-    }
-
-    _loadChangeLog () {
-
-        const stringChangesAsJsonLog = this._stringChangesAsJsonLog;
-
-        const arrayOfStringChangesAsJson = stringChangesAsJsonLog.OldEntries();
-        stringChangesAsJsonLog.deleteOldEntries();
+    _writeStringChangesToState (stringChanges) {
 
         let i;
-        let stringChanges;
-        let j;
+        const changeCount = stringChanges.length;
         let c;
         let keyAsString;
-        const overwrittenKeysAsStrings = new Set();
-        const defaultValAsString = this._defaultValAsString;
-        const compressedStringChanges = [];
-        let compressedChangeCount = 0;
+        let valAsString;
+        const KeyFromString = this._KeyFromString;
+        const ValFromString = this._ValFromString;
+        const state = this._state;
 
-        for (i=arrayOfStringChangesAsJson.length-1; i>=0; i--) {
+        for (i=0; i<changeCount; i++) {
 
-            stringChanges = FromJson(arrayOfStringChangesAsJson[i]);
+            c = stringChanges[i];
+            keyAsString = c[0];
+            valAsString = c[1];
 
-            for (j=stringChanges.length-1; j>=0; j--) {
+            this._writeChangeEventToState({
 
-                c = stringChanges[j]; // contains [keyAsString, valAsString]
+                keyAsString,
+                valAsString,
 
-                keyAsString = c[0];
+                key: KeyFromString(keyAsString),
+                val: ValFromString(valAsString),
 
-                if (!overwrittenKeysAsStrings.has(keyAsString)) {
+                oldVal: state.ValOfKeyAsString(keyAsString),
+                oldValAsString: state.ValAsStringOfKeyAsString(keyAsString),
 
-                    overwrittenKeysAsStrings.add(keyAsString);
-
-                    if (c[1] !== defaultValAsString) {
-
-                        this._writeChangeEventToState(
-                            this._StringChangeAsChangeEvent(c)
-                            );
-
-                        compressedStringChanges[compressedChangeCount++] = c;
-
-                    }
-
-                }
-
-            }
+                });
 
         }
-        //^ filter out changes that:
-        //
-        //      are overwritten by a later change
-        //      are deletions (valAsString === defaultValAsString)
-        //
-        //  (the remaining changes can be written in the opposite order 
-        //   they happened because they contain no overwritten changes)
-
-        stringChangesAsJsonLog.addToWriteQueue(AsJson(compressedStringChanges));
 
     }
 
