@@ -18,6 +18,8 @@ module.exports = class {
 
     constructor ({path}) {
 
+        assert(typeof path === `string`);
+        
         this._prefix = (path[path.length-1] === `/`)? path : path+`/`;
 
         let i;
