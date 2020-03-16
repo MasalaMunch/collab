@@ -1,5 +1,7 @@
 "use strict";
 
+const {assert} = require(`@masalamunch/collab-utils`);
+
 const PrefixRegExp = require(`./PrefixRegExp.js`);
 
 module.exports = class {
@@ -51,9 +53,7 @@ module.exports = class {
 
     Strings () {
 
-        if (this._hasInitializedWriteQueue) {
-            throw new Error(`Strings was called after initializeWriteQueue`);
-        }
+        assert(!this._hasInitializedWriteQueue);
 
         return this._strings;
 
@@ -61,9 +61,7 @@ module.exports = class {
 
     clear () {
 
-        if (this._hasInitializedWriteQueue) {
-            throw new Error(`clear was called after initializeWriteQueue`);
-        }
+        assert(!this._hasInitializedWriteQueue);
 
         const keysAndNumbers = this._keysAndNumbers;
 
@@ -93,7 +91,7 @@ module.exports = class {
 
     addToWriteQueue (string) {
 
-        if (this._hasInitializedWriteQueue === false) {
+        if (!this._hasInitializedWriteQueue) {
 
             throw new Error(
                 `addToWriteQueue was called before initializeWriteQueue`
