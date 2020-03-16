@@ -4,7 +4,7 @@ const JoinedPaths = require(`path`).join;
 
 const RbTree = require(`bintrees`).RBTree;
 
-const {assert, Collab, rejectBadInput, AsJson, FromJson, FakeLog}
+const {assert, Collab, rejectBadInput, AsJson, FromJson, FakeLog, StringLog}
     = require(`@masalamunch/collab-utils`);
 
 const CollabStateThatStoresValsAsStrings 
@@ -13,7 +13,6 @@ const NewCollabServerIdViaMathDotRandom
     = require(`./NewCollabServerIdViaMathDotRandom.js`);
 const NewCollabServerIdViaNumberFile 
     = require(`./NewCollabServerIdViaNumberFile.js`);
-const StringLogViaFile = require(`./StringLogViaFile.js`);
 
 const VersionComparison = (a, b) => a - b;
 

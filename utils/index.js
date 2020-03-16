@@ -10,6 +10,5 @@ module.exports = {
     FromJson: require(`./FromJson.js`),
     minCollabServerId: require(`./minCollabServerId.js`),
     rejectBadInput: require(`./rejectBadInput.js`), 
-    StringLogViaFile: require(`./StringLogViaFile.js`),
-    StringLogViaLocalStorage: require(`./StringLogViaLocalStorage.js`),
+    StringLog: require(`./StringLog.js`),
     };

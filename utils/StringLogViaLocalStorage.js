@@ -5,6 +5,17 @@ const PrefixRegExp = require(`./PrefixRegExp.js`);
 
 module.exports = class {
 
+    static IsSupported () {
+        return (
+            localStorage
+            && typeof localStorage.length === `number`
+            && typeof localStorage.key === `function`
+            && typeof localStorage.getItem === `function`
+            && typeof localStorage.removeItem === `function`
+            && typeof localStorage.setItem === `function`
+            );
+    }
+
     constructor ({path}) {
 
         this._prefix = (path[path.length-1] === `/`)? path : path+`/`;

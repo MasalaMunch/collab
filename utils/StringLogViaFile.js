@@ -8,6 +8,15 @@ const fileOptions = {encoding: stringFileEncoding};
 
 module.exports = class {
 
+    static IsSupported () {
+        return (
+            fs 
+            && typeof fs.readFileSync === `function`
+            && typeof fs.writeFileSync === `function`
+            && typeof fs.createWriteStream === `function`
+            );
+    }
+
     constructor ({path, delimiter}) {
 
         this._path = path;
