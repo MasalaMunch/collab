@@ -1,21 +1,21 @@
 "use strict";
 
-const StoredStringLogViaFile = require(`./StoredStringLogViaFile.js`);
-const StoredStringLogViaLocalStorage = require(`./StoredStringLogViaLocalStorage.js`);
-const FakeStoredStringLog = require(`./FakeStoredStringLog.js`);
+const StringLogViaFile = require(`./StringLogViaFile.js`);
+const StringLogViaLocalStorage = require(`./StringLogViaLocalStorage.js`);
+const FakeLog = require(`./FakeLog.js`);
 
-if (StoredStringLogViaFile.IsSupported()) {
+if (StringLogViaFile.IsSupported()) {
 
-    module.exports = StoredStringLogViaFile;
+    module.exports = StringLogViaFile;
 
 }
-else if (StoredStringLogViaLocalStorage.IsSupported()) {
+else if (StringLogViaLocalStorage.IsSupported()) {
 
-    module.exports = StoredStringLogViaLocalStorage;
+    module.exports = StringLogViaLocalStorage;
 
 }
 else {
 
-    module.exports = FakeStoredStringLog;
+    module.exports = undefined;
 
 }

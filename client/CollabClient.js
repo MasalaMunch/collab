@@ -1,6 +1,8 @@
 "use strict";
 
-const {assert, Collab, FakeStoredStringLog, StoredStringLog} 
+const JoinedPaths = require(`path`).join;
+
+const {assert, Collab, FakeValue, FakeLog, StoredNumberValue, StoredStringLog} 
     = require(`@masalamunch/collab-utils`);
 
 const CollabStateThatStoresVals = require(`./CollabStateThatStoresVals.js`);
@@ -14,9 +16,29 @@ module.exports = class extends Collab {
 
         super(config);
 
-        const {localStoragePrefix} = config;
+        const {storagePath} = config;
 
-        this._serverId = nonexistentCollabServerId;
+        if (storagePath === undefined) {
+
+            this._serverIdStorage = new FakeValue();
+
+        }
+        else {
+
+            this._serverIdStorage = new StoredNumberValue({
+                path: JoinedPaths(storagePath, `s`)
+                });
+
+        }
+
+        const storedServerId = this._serverIdStorage.Contents();
+
+        this._serverId = (
+            storedServerId === undefined? 
+            nonexistentCollabServerId : storedServerId
+            );
+
+        //bm
 
         this._currentVersion = -Infinity;
 
@@ -31,6 +53,8 @@ module.exports = class extends Collab {
         //  from the server
 
         if (localStoragePrefix === undefined) {
+
+
 
             this._storage = fakeStorage;
 

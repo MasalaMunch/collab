@@ -4,7 +4,7 @@ const JoinedPaths = require(`path`).join;
 
 const RbTree = require(`bintrees`).RBTree;
 
-const {assert, Collab, rejectBadInput, AsJson, FromJson, FakeStoredStringLog, 
+const {assert, Collab, rejectBadInput, AsJson, FromJson, FakeLog, 
        StoredStringLog} = require(`@masalamunch/collab-utils`);
 
 const CollabStateThatStoresValsAsStrings 
@@ -30,18 +30,18 @@ module.exports = class extends Collab {
 
         if (storagePath === undefined) {
 
-            this._stringChangesAsJsonStorage = new FakeStoredStringLog();
+            this._stringChangesAsJsonStorage = new FakeLog();
             this._id = NewCollabServerIdViaMathDotRandom();
 
         }
         else {
 
             this._stringChangesAsJsonStorage = new StoredStringLog({
-                path: JoinedPaths(storagePath, `log`),
+                path: JoinedPaths(storagePath, `l`),
                 delimiter: `\n`,
                 });
             this._id = NewCollabServerIdViaStorage({
-                path: JoinedPaths(storagePath, `id`),
+                path: JoinedPaths(storagePath, `i`),
                 });
 
         }
