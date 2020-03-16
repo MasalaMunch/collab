@@ -51,7 +51,7 @@ module.exports = class {
 
     }
 
-    Strings () {
+    Entries () {
 
         assert(!this._hasInitializedWriteQueue);
 
@@ -89,17 +89,9 @@ module.exports = class {
 
     }
 
-    addToWriteQueue (string) {
+    addToWriteQueue (entry) {
 
-        if (!this._hasInitializedWriteQueue) {
-
-            throw new Error(
-                `addToWriteQueue was called before initializeWriteQueue`
-                );
-
-        }
-
-        localStorage.setItem(this._prefix+String(this._count++), string);
+        localStorage.setItem(this._prefix+String(this._count++), entry);
 
     }
 

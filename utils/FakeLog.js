@@ -2,7 +2,7 @@
 
 module.exports = class {
 
-    Strings () {
+    Entries () {
         return [];
     }
 

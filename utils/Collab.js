@@ -7,7 +7,7 @@ const AsJsonWithSortedKeys = require(`./AsJsonWithSortedKeys.js`);
 const FromJson = require(`./FromJson.js`);
 const rejectBadInput = require(`./rejectBadInput.js`);
 const doNothing = require(`./doNothing.js`);
-const FakeStringLog = require(`./FakeStringLog.js`);
+const FakeLog = require(`./FakeLog.js`);
 
 const DefaultIntentAsChanges = (intent, state, derivedState) => intent;
 

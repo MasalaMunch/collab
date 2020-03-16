@@ -15,7 +15,7 @@ module.exports = class {
 
     }
 
-    Strings () {
+    Entries () {
 
         let fileAsString;
 
@@ -38,11 +38,11 @@ module.exports = class {
 
         }
 
-        const strings = fileAsString.split(this._delimiter);
+        const entries = fileAsString.split(this._delimiter);
 
-        strings.pop();
+        entries.pop();
 
-        return strings;
+        return entries;
 
     }
 
@@ -61,11 +61,11 @@ module.exports = class {
 
     }
 
-    addToWriteQueue (string) {
+    addToWriteQueue (entry) {
 
         const s = this._appendStream;
 
-        s.write(string);
+        s.write(entry);
         s.write(this._delimiter);
 
     }
