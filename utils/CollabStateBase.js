@@ -51,4 +51,4 @@ module.exports = class {
         //^ ValAsStringOfKeyAsString should be implemented in a child class
     }
 
-};
+    };

@@ -4,8 +4,8 @@ const JoinedPaths = require(`path`).join;
 
 const RbTree = require(`bintrees`).RBTree;
 
-const {assert, Collab, rejectBadInput, AsJson, FromJson, FakeLog, 
-       StoredStringLog} = require(`@masalamunch/collab-utils`);
+const {assert, Collab, rejectBadInput, AsJson, FromJson, EmptyLog, 
+       StoredStringLog, jsonSeparator} = require(`@masalamunch/collab-utils`);
 
 const CollabStateThatStoresValsAsStrings 
     = require(`./CollabStateThatStoresValsAsStrings.js`);
@@ -30,7 +30,7 @@ module.exports = class extends Collab {
 
         if (storagePath === undefined) {
 
-            this._stringChangesAsJsonStorage = new FakeLog();
+            this._stringChangesAsJsonStorage = new EmptyLog();
             this._id = NewCollabServerIdViaMathDotRandom();
 
         }
@@ -38,7 +38,7 @@ module.exports = class extends Collab {
 
             this._stringChangesAsJsonStorage = new StoredStringLog({
                 path: JoinedPaths(storagePath, `l`),
-                delimiter: `\n`,
+                separator: jsonSeparator,
                 });
             this._id = NewCollabServerIdViaStorage({
                 path: JoinedPaths(storagePath, `i`),
@@ -73,9 +73,9 @@ module.exports = class extends Collab {
 
         this._writeStringChangesToState(compressedStringChanges);
         
-        stringChangesAsJsonStorage.overwrite(AsJson(compressedStringChanges));
-
+        stringChangesAsJsonStorage.clear();
         stringChangesAsJsonStorage.initializeWriteQueue();
+        stringChangesAsJsonStorage.addToWriteQueue(AsJson(compressedStringChanges));
 
     }
 
@@ -322,4 +322,4 @@ module.exports = class extends Collab {
 
     }
 
-};
+    };

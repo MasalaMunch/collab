@@ -3,9 +3,12 @@
 const assert = require(`./assert.js`);
 const PrefixRegExp = require(`./PrefixRegExp.js`);
 
+const KeyAndNumberComparison = (a, b) => a[1] - b[1];
+
 module.exports = class {
 
     static IsSupported () {
+
         return (
             localStorage
             && typeof localStorage.length === `number`
@@ -14,6 +17,7 @@ module.exports = class {
             && typeof localStorage.removeItem === `function`
             && typeof localStorage.setItem === `function`
             );
+
     }
 
     constructor ({path}) {
@@ -22,50 +26,64 @@ module.exports = class {
         
         this._prefix = (path[path.length-1] === `/`)? path : path+`/`;
 
-        let i;
-        const localStorageLength = localStorage.length;
-        let key;
-        const prefixRegExp = PrefixRegExp(this._prefix);
-        const keysAndNumbers = [];
-        let count = 0;
-        const prefixLength = this._prefix.length;
+        this._count = this._SortedKeysAndNumbers().length;
 
-        for (i=0; i<localStorageLength; i++) {
+    }
 
-            key = localStorage.key(i);
+    _SortedKeysAndNumbers () {
 
-            if (prefixRegExp.test(key)) {
+        if (this._sortedKeysAndNumbers === undefined) {
 
-                keysAndNumbers[count++] = [
-                    key, 
-                    Number(key.substring(prefixLength, key.length)),
-                    ];
+            let i;
+            const localStorageLength = localStorage.length;
+            let key;
+            const prefixRegExp = PrefixRegExp(this._prefix);
+            const keysAndNumbers = [];
+            let count = 0;
+            const prefixLength = this._prefix.length;
+
+            for (i=0; i<localStorageLength; i++) {
+
+                key = localStorage.key(i);
+
+                if (prefixRegExp.test(key)) {
+
+                    keysAndNumbers[count++] = [
+                        key, 
+                        Number(key.substring(prefixLength, key.length)),
+                        ];
+
+                }
 
             }
 
-        }
-
-        keysAndNumbers.sort(KeyAndNumberComparison);
-
-        const entries = [];
-
-        for (i=0; i<count; i++) {
-
-            entries[i] = localStorage.getItem(keysAndNumbers[i][0]);
+            keysAndNumbers.sort(KeyAndNumberComparison);
+            this._sortedKeysAndNumbers = keysAndNumbers;
 
         }
 
-        this._keysAndNumbers = keysAndNumbers;
-        this._count = count;
-        this._entries = entries;
-
-        this._hasBeenModified = false;
+        return this._sortedKeysAndNumbers;
 
     }
 
     Entries () {
 
-        assert(!this._hasBeenModified);
+        if (this._entries === undefined) {
+
+            let i;
+            const sortedKeysAndNumbers = this._SortedKeysAndNumbers();
+            const count = sortedKeysAndNumbers.length;
+            const entries = [];
+
+            for (i=0; i<count; i++) {
+
+                entries[i] = localStorage.getItem(sortedKeysAndNumbers[i][0]);
+
+            }
+
+            this._entries = entries;
+
+        }
 
         return this._entries;
 
@@ -73,48 +91,56 @@ module.exports = class {
 
     clear () {
 
-        assert(!this._hasBeenModified);
-
-        const keysAndNumbers = this._keysAndNumbers;
-
         let i;
+        const sortedKeysAndNumbers = this._SortedKeysAndNumbers();
 
-        for (i=this._count-1; i>=0; i--) {
+        for (i=sortedKeysAndNumbers.length-1; i>=0; i--) {
 
-            localStorage.removeItem(keysAndNumbers[i][0]);
+            localStorage.removeItem(sortedKeysAndNumbers[i][0]);
 
         }
 
-        this._keysAndNumbers = [];
         this._count = 0;
-        this._entries = [];
+
+        this._clearCache();
 
     }
 
-    overwrite (entry) {
+    write (entry) {
 
-        this.clear();
+        assert(typeof entry === `string`);
 
-        this.initializeWriteQueue();
+        localStorage.setItem(this._prefix+String(this._count++), entry);
 
-        this.addToWriteQueue(entry);
+        this._clearCache();
 
     }
 
     initializeWriteQueue () {
-
-        this._keysAndNumbers = undefined;
-
-        this._entries = undefined;
-
-        this._hasBeenModified = true;
-
     }
 
     addToWriteQueue (entry) {
 
+        if (typeof entry !== `string`) {
+            throw new TypeError(
+                `tried to write a non-string entry to a stringLog`
+                );
+        }
+
         localStorage.setItem(this._prefix+String(this._count++), entry);
+
+        this._sortedKeysAndNumbers = undefined;
+        this._entries = undefined;
+
+        //^ DRY is violated a bit here to make it speedier
 
     }
 
-};
+    _clearCache () {
+
+        this._sortedKeysAndNumbers = undefined;
+        this._entries = undefined;
+
+    }
+
+}   ;

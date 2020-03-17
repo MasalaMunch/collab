@@ -9,18 +9,23 @@ const fileOptions = {encoding: stringFileEncoding};
 module.exports = class {
 
     static IsSupported () {
+
         return (
             fs 
             && typeof fs.readFileSync === `function`
             && typeof fs.writeFileSync === `function`
             && typeof fs.createWriteStream === `function`
             );
+        
     }
 
-    constructor ({path, delimiter}) {
+    constructor ({path, separator}) {
 
         this._path = path;
-        this._delimiter = delimiter;
+
+        assert(typeof separator === `string`);
+        this._separator = separator;
+
         this._appendStream = undefined;
 
     }
@@ -45,7 +50,7 @@ module.exports = class {
 
         }
 
-        const entries = fileAsString.split(this._delimiter);
+        const entries = fileAsString.split(this._separator);
 
         entries.pop();
 
@@ -59,9 +64,11 @@ module.exports = class {
 
     }
 
-    overwrite (entry) {
+    write (entry) {
 
-        fs.writeFileSync(this._path, entry+this._delimiter, fileOptions);
+        assert(typeof entry === `string`);
+
+        fs.appendFileSync(this._path, entry+this._separator, fileOptions);
 
     }
 
@@ -79,9 +86,16 @@ module.exports = class {
 
     addToWriteQueue (entry) {
 
+        if (typeof entry !== `string`) {
+            throw new TypeError(
+                `tried to write a non-string entry to a stringLog`
+                );
+        }
+
         const s = this._appendStream;
+
         s.write(entry);
-        s.write(this._delimiter);
+        s.write(this._separator);
 
     }
 

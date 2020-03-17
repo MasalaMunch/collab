@@ -2,7 +2,7 @@
 
 const JoinedPaths = require(`path`).join;
 
-const {assert, Collab, FakeValue, FakeLog, StoredNumberValue, StoredStringLog} 
+const {assert, Collab, FakeValue, jsonSeparator, EmptyLog, StoredStringLog} 
     = require(`@masalamunch/collab-utils`);
 
 const CollabStateThatStoresVals = require(`./CollabStateThatStoresVals.js`);
@@ -20,25 +20,24 @@ module.exports = class extends Collab {
 
         if (storagePath === undefined) {
 
-            this._serverIdStorage = new FakeValue();
+            this._serverOutputAsJsonStorage = new StoredStringLog({
+                path: JoinedPaths(storagePath, `s`),
+                separator: jsonSeparator,
+                });
+            this._intentEventAsJsonStorage = new StoredStringLog({
+                path: JoinedPaths(storagePath, `i`),
+                separator: jsonSeparator,
+                });
 
         }
         else {
 
-            this._serverIdStorage = new StoredNumberValue({
-                path: JoinedPaths(storagePath, `s`)
-                });
+            this._serverOutputAsJsonStorage = new EmptyLog();
+            this._intentEventAsJsonStorage = new EmptyLog();
 
         }
 
-        const storedServerId = this._serverIdStorage.Contents();
-
-        this._serverId = (
-            storedServerId === undefined? 
-            nonexistentCollabServerId : storedServerId
-            );
-
-        //bm
+        const serverId = nonexistentCollabServerId;
 
         this._currentVersion = -Infinity;
 
@@ -52,129 +51,7 @@ module.exports = class extends Collab {
         //  to revert the client to the synced state before it applies changes 
         //  from the server
 
-        if (localStoragePrefix === undefined) {
-
-
-
-            this._storage = fakeStorage;
-
-            this._versionLocalStorageKey = undefined;
-
-            this._syncedLocalStoragePrefix = undefined;
-            this._unsyncedLocalStoragePrefix = undefined;
-
-            this._minIntentStorageNumber = undefined;
-            this._nextIntentStorageNumber = undefined;
-
-        }
-        else {
-
-            this._storage = localStorage;
-
-            assert(typeof localStoragePrefix === `string`);
-
-            this._versionLocalStorageKey = localStoragePrefix + `v`;
-            //^ stores String(currentVersion)
-            
-            this._syncedLocalStoragePrefix = localStoragePrefix + `s/`;
-            //^ stores a {keyAsString -> AsJson([oldValAsString, version, 
-            //  valAsString])} map
-            this._unsyncedLocalStoragePrefix = localStoragePrefix + `u/`;
-            //^ stores a {String(intentStorageNumber) -> intentAsString} map
-
-            this._minIntentStorageNumber = undefined;
-            this._nextIntentStorageNumber = 0;
-
-            const storage = this._storage;
-            const storedVersion = storage.getItem(this._versionLocalStorageKey);
-            if (storedVersion !== null) {
-                this._currentVersion = Number(storedVersion);
-            }
-
-            let i;
-            let key;
-            const syncedRegExp = PrefixRegExp(this._syncedLocalStoragePrefix);
-            let item;
-            let valAsString;
-            const version = this._currentVersion;
-            const defaultValAsString = this._defaultValAsString;
-            const removeTheseKeys = [];
-            let removeCount = 0;
-            const syncedPrefixLength = this._syncedLocalStoragePrefix.length;
-            const unsyncedRegExp = PrefixRegExp(this._unsyncedLocalStoragePrefix);
-            const intentsAsStringsWithNumbers = [];
-            let intentCount = 0;
-            const unsyncedPrefixLength = this._unsyncedLocalStoragePrefix.length;
-
-            for (i=storage.length-1; i>=0; i--) {
-
-                key = storage.key(n);
-
-                if (syncedRegExp.test(key)) {
-
-                    item = FromJson(storage.getItem(key));
-                    valAsString = item[1] > version? item[0] : item[2];
-
-                    if (valAsString === defaultValAsString) {
-
-                        removeTheseKeys[removeCount++] = key;
-
-                    }
-                    else {
-
-                        this._writeChangeEventToState(
-                            this._StringChangeAsChangeEvent([
-                                key.substring(syncedPrefixLength, key.length), 
-                                valAsString,
-                                ])
-                            );
-
-                    }
-
-                }
-                else if (unsyncedRegExp.test(key)) {
-
-                    intentsAsStringsWithNumbers[intentCount++] = [
-                        storage.getItem(key),
-                        Number(key.substring(unsyncedPrefixLength, key.length)),
-                        ];
-
-                }
-
-            }
-
-            for (i=0; i<removeCount; i++) {
-                storage.removeItem(removeTheseKeys[i]);
-            }
-            //^ do removals after because you can't modify storage while 
-            //  iterating through it, according to https://stackoverflow.com/a/3138591
-
-            if (intentCount !== 0) { // if intentCount > 0
-
-                intentsAsStringsWithNumbers.sort(
-                    IntentAsStringWithNumberComparison
-                    );
-
-                this._minIntentStorageNumber = intentsAsStringsWithNumbers[0][1];
-                this._nextIntentStorageNumber = (
-                    intentsAsStringsWithNumbers[intentCount-1][1] + 1
-                    );
-
-                let intentAsString;
-                const IntentFromString = this._IntentFromString;
-
-                for (i=0; i<intentCount; i++) {
-
-                    intentAsString = intentsAsStringsWithNumbers[i][0];
-                    this._writeIntentAndReturnItsInfo(
-                        IntentFromString(intentAsString), intentAsString, true
-                        );
-
-                }
-
-            }
-
-        }
+        //bm
 
     }
 
@@ -244,4 +121,4 @@ module.exports = class extends Collab {
 
     }
 
-};
+    };

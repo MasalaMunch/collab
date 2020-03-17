@@ -1,17 +1,23 @@
 "use strict";
 
-const {minCollabServerId, StoredNumberValue} = require(`@masalamunch/collab-utils`);
+const {minCollabServerId, StoredStringLog} = require(`@masalamunch/collab-utils`);
+
+const numberAsStringSeparator = require(`./numberAsStringSeparator.js`);
 
 module.exports = ({path}) => {
 
-    const storedId = new StoredNumberValue({path});
+    const idAsStringLog = new StoredStringLog({
+        path, 
+        separator: numberAsStringSeparator,
+        });
 
-    const oldId = storedId.Contents();
+    const oldId = Number(idAsStringLog.Entries()[0]);
 
     const newId = isNaN(oldId)? minCollabServerId : oldId+1;
 
-    storedId.write(newId);
+    idAsStringLog.clear();
+    idAsStringLog.write(String(newId));
 
     return newId;
 
-};
+    };

@@ -9,7 +9,7 @@ module.exports = class {
     clear () {
     }
 
-    overwrite () {
+    write () {
     }
 
     initializeWriteQueue () {

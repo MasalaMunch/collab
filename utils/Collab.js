@@ -7,7 +7,7 @@ const AsJsonWithSortedKeys = require(`./AsJsonWithSortedKeys.js`);
 const FromJson = require(`./FromJson.js`);
 const rejectBadInput = require(`./rejectBadInput.js`);
 const doNothing = require(`./doNothing.js`);
-const FakeLog = require(`./FakeLog.js`);
+const EmptyLog = require(`./EmptyLog.js`);
 
 const DefaultIntentAsChanges = (intent, state, derivedState) => intent;
 
@@ -308,4 +308,4 @@ module.exports = class {
         return this._actionChangeEvents.get(action);
     }
 
-};
+    };

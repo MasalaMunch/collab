@@ -2,7 +2,7 @@
 
 const StringLogViaFile = require(`./StringLogViaFile.js`);
 const StringLogViaLocalStorage = require(`./StringLogViaLocalStorage.js`);
-const FakeLog = require(`./FakeLog.js`);
+const EmptyLog = require(`./EmptyLog.js`);
 
 if (StringLogViaFile.IsSupported()) {
 
