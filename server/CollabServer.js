@@ -5,7 +5,7 @@ const JoinedPaths = require(`path`).join;
 const RbTree = require(`bintrees`).RBTree;
 
 const {assert, Collab, rejectBadInput, AsJson, FromJson, EmptyLog, 
-       StoredStringLog, jsonSeparator} = require(`@masalamunch/collab-utils`);
+       StoredStringLog, jsonSeparator, AssertionError} = require(`@masalamunch/collab-utils`);
 
 const CollabStateThatStoresValsAsStrings 
     = require(`./CollabStateThatStoresValsAsStrings.js`);
@@ -157,7 +157,7 @@ module.exports = class extends Collab {
                 rejectBadInput(error);
             }
             if (clientInput === null) {
-                rejectBadInput(new TypeError(`client input is null`));
+                rejectBadInput(new AssertionError());
             }
             let version;
 
@@ -232,9 +232,7 @@ module.exports = class extends Collab {
 
                     s = intentsAsStrings[i];
                     if (typeof s !== `string`) {
-                        rejectBadInput(new TypeError(
-                            `a non-string item was found in intentsAsStrings`
-                            ));
+                        rejectBadInput(new AssertionError());
                     }
                     try {
                         n = IntentFromString(s);

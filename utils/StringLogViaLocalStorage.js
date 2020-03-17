@@ -1,6 +1,7 @@
 "use strict";
 
 const assert = require(`./assert.js`);
+const AssertionError = require(`./AssertionError.js`);
 const PrefixRegExp = require(`./PrefixRegExp.js`);
 
 const KeyAndNumberComparison = (a, b) => a[1] - b[1];
@@ -26,7 +27,15 @@ module.exports = class {
         
         this._prefix = (path[path.length-1] === `/`)? path : path+`/`;
 
-        this._count = this._SortedKeysAndNumbers().length;
+        const sortedKeysAndNumbers = this._SortedKeysAndNumbers();
+
+        const lastKeyAndNumber = (
+            sortedKeysAndNumbers[sortedKeysAndNumbers.length-1]
+            );
+
+        this._nextNumber = (
+            (lastKeyAndNumber === undefined)? 0 : lastKeyAndNumber[1]+1
+            );
 
     }
 
@@ -92,15 +101,16 @@ module.exports = class {
     clear () {
 
         let i;
-        const sortedKeysAndNumbers = this._SortedKeysAndNumbers();
+        const keysAndNumbers = this._SortedKeysAndNumbers();
 
-        for (i=sortedKeysAndNumbers.length-1; i>=0; i--) {
+        for (i=keysAndNumbers.length-1; i>=0; i--) {
 
-            localStorage.removeItem(sortedKeysAndNumbers[i][0]);
+            localStorage.removeItem(keysAndNumbers[i][0]);
 
         }
 
-        this._count = 0;
+        this._nextNumber = 0; 
+        //^ not necessary, but might as well do it to reduce future key lengths
 
         this._sortedKeysAndNumbers = undefined;
         this._entries = undefined;
@@ -119,12 +129,10 @@ module.exports = class {
     addToWriteQueue (entry) {
 
         if (typeof entry !== `string`) {
-            throw new TypeError(
-                `tried to write a non-string entry to a stringLog`
-                );
+            throw new AssertionError();
         }
 
-        localStorage.setItem(this._prefix+String(this._count++), entry);
+        localStorage.setItem(this._prefix+String(this._nextNumber++), entry);
 
         this._sortedKeysAndNumbers = undefined;
         this._entries = undefined;

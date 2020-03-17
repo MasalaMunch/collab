@@ -3,6 +3,7 @@
 module.exports = {
     AsJson: require(`./AsJson.js`),
     assert: require(`./assert.js`),
+    AssertionError: require(`./AssertionError.js`),
     ClassFactory: require(`./ClassFactory.js`),
     Collab: require(`./Collab.js`),
     CollabStateBase: require(`./CollabStateBase.js`),

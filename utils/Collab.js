@@ -1,6 +1,7 @@
 "use strict";
 
 const assert = require(`./assert.js`);
+const AssertionError = require(`./AssertionError.js`);
 const Queue = require(`./Queue.js`);
 const AsJson = require(`./AsJson.js`);
 const AsJsonWithSortedKeys = require(`./AsJsonWithSortedKeys.js`);
@@ -118,7 +119,7 @@ module.exports = class {
         this._IntentAsChanges = IntentAsChanges;
 
         this._shouldRememberLocalActions = shouldRememberLocalActions;
-        this._nextAction = Number.MIN_SAFE_INTEGER;
+        this._nextAction = 0;
         this._actionIntents = new Map();
         this._actionChangeEvents = new Map();
         //^ remembering local actions is useful for implementing undo-redo
@@ -134,9 +135,7 @@ module.exports = class {
             rejectBadInput(error);
         }
         if (typeof intentAsString !== `string`) {
-            rejectBadInput(new TypeError(
-                `IntentAsString didn't return a string`
-                ));
+            rejectBadInput(new AssertionError());
         }
         
         try {
@@ -201,14 +200,10 @@ module.exports = class {
                 rejectBadInput(error);
             }
             if (typeof keyAsString !== `string`) {
-                rejectBadInput(new TypeError(
-                    `KeyAsString didn't return a string`
-                    ));
+                rejectBadInput(new AssertionError());
             }
             if (typeof valAsString !== `string`) {
-                rejectBadInput(new TypeError(
-                    `ValAsString didn't return a string`
-                    ));
+                rejectBadInput(new AssertionError());
             }
 
             try {

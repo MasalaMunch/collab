@@ -8,7 +8,7 @@ module.exports = class extends CollabStateBase {
 
         const val = this._map.get(keyAsString);
         return (
-            val === undefined? 
+            (val === undefined)? 
             this.defaultVal : val
             );
 
@@ -18,7 +18,7 @@ module.exports = class extends CollabStateBase {
 
         const val = this._map.get(keyAsString);
         return (
-            val === undefined? 
+            (val === undefined)? 
             this.defaultValAsString : this.ValAsString(val)
             );
 

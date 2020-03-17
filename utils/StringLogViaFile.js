@@ -2,6 +2,7 @@
 
 const fs = require(`fs`);
 
+const AssertionError = require(`./AssertionError.js`);
 const stringFileEncoding = require(`./stringFileEncoding.js`);
 
 const fileOptions = {encoding: stringFileEncoding};
@@ -16,7 +17,7 @@ module.exports = class {
             && typeof fs.writeFileSync === `function`
             && typeof fs.createWriteStream === `function`
             );
-        
+
     }
 
     constructor ({path, separator}) {
@@ -87,9 +88,7 @@ module.exports = class {
     addToWriteQueue (entry) {
 
         if (typeof entry !== `string`) {
-            throw new TypeError(
-                `tried to write a non-string entry to a stringLog`
-                );
+            throw new AssertionError();
         }
 
         const s = this._appendStream;
