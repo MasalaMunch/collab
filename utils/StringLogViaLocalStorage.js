@@ -102,17 +102,14 @@ module.exports = class {
 
         this._count = 0;
 
-        this._clearCache();
+        this._sortedKeysAndNumbers = undefined;
+        this._entries = undefined;
 
     }
 
     write (entry) {
 
-        assert(typeof entry === `string`);
-
-        localStorage.setItem(this._prefix+String(this._count++), entry);
-
-        this._clearCache();
+        this.addToWriteQueue(entry);
 
     }
 
@@ -132,15 +129,6 @@ module.exports = class {
         this._sortedKeysAndNumbers = undefined;
         this._entries = undefined;
 
-        //^ DRY is violated a bit here to make it speedier
-
     }
 
-    _clearCache () {
-
-        this._sortedKeysAndNumbers = undefined;
-        this._entries = undefined;
-
-    }
-
-}   ;
+    };
