@@ -9,12 +9,6 @@ module.exports = class {
     clear () {
     }
 
-    write () {
-    }
-
-    initializeWriteQueue () {
-    }
-
     addToWriteQueue () {
     }
 

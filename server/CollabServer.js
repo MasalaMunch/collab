@@ -5,14 +5,12 @@ const JoinedPaths = require(`path`).join;
 const RbTree = require(`bintrees`).RBTree;
 
 const {assert, Collab, rejectBadInput, AsJson, FromJson, EmptyLog, 
-       StoredStringLog, jsonSeparator, AssertionError} = require(`@masalamunch/collab-utils`);
+       StoredStringLog, jsonSeparator, AssertionError, defaultVal, 
+       defaultValAsString} = require(`@masalamunch/collab-utils`);
 
+const NewCollabServerId = require(`./NewCollabServerId.js`);
 const CollabStateThatStoresValsAsStrings 
     = require(`./CollabStateThatStoresValsAsStrings.js`);
-const NewCollabServerIdViaMathDotRandom 
-    = require(`./NewCollabServerIdViaMathDotRandom.js`);
-const NewCollabServerIdViaStorage
-    = require(`./NewCollabServerIdViaStorage.js`);
 
 const VersionComparison = (a, b) => a - b;
 
@@ -28,58 +26,56 @@ module.exports = class extends Collab {
 
         const {storagePath} = config;
 
+        this._id = NewCollabServerId();
+
         if (storagePath === undefined) {
 
-            this._stringChangesAsJsonStorage = new EmptyLog();
-            this._id = NewCollabServerIdViaMathDotRandom();
+            this._changesAsJsonStorage = new EmptyLog();
 
         }
         else {
 
-            this._stringChangesAsJsonStorage = new StoredStringLog({
-                path: JoinedPaths(storagePath, `l`),
+            this._changesAsJsonStorage = new StoredStringLog({
+                path: JoinedPaths(storagePath, `c`),
                 separator: jsonSeparator,
-                });
-            this._id = NewCollabServerIdViaStorage({
-                path: JoinedPaths(storagePath, `i`),
                 });
 
         }
 
-        this._keyAsStringVersions = new Map();
+        this._versionKeys = new Map();
         this._versionKeysAsStrings = new Map();
+        this._keyAsStringVersions = new Map();
 
         this._versionTree = new RbTree(VersionComparison);
         this._deletionVersionTree = new RbTree(VersionComparison);
 
         this._currentVersion = firstVersion;
 
-        const stringChangesAsJsonStorage = this._stringChangesAsJsonStorage;
+        const changesAsJsonStorage = this._changesAsJsonStorage;
 
         let i;
-        const stringChangesAsJsonArray = stringChangesAsJsonStorage.Entries();
-        const changesCount = stringChangesAsJsonArray.length;
-        const stringChangesArray = [];
+        const changesAsJsonArray = changesAsJsonStorage.Entries();
+        const changesCount = changesAsJsonArray.length;
+        const changesFromJsonArray = [];
 
         for (i=0; i<changeCount; i++) {
 
-            stringChangesArray[i] = FromJson(stringChangesAsJsonArray[i]);
+            changesFromJsonArray[i] = FromJson(changesAsJsonArray[i]);
 
         }
 
-        const compressedStringChanges = (
-            this._CompressedStringChanges(stringChangesArray)
+        const {partialChangeEvents, changes} = (
+            Collab._CompressedChangesFromJsonArray(changesFromJsonArray)
             );
 
-        this._writeStringChangesToState(compressedStringChanges);
+        this._normalizeAndWritePartialChangeEventsToState(partialChangeEvents);
         
-        stringChangesAsJsonStorage.clear();
-        stringChangesAsJsonStorage.initializeWriteQueue();
-        stringChangesAsJsonStorage.addToWriteQueue(AsJson(compressedStringChanges));
+        changesAsJsonStorage.clear();
+        changesAsJsonStorage.addToWriteQueue(AsJson(changes));
 
     }
 
-    *_VersionTreeStringChangesSince (tree, version) {
+    *_VersionTreeChangesSince (tree, version) {
 
         const iterator = tree.upperBound(version);
 
@@ -87,53 +83,42 @@ module.exports = class extends Collab {
             return 0; // i.e. undefined, speeds up the common case
         }
 
-        const stringChanges = [];
-        let changeCount = 0;
-
+        let val;
+        const stateMap = this._stateMap;
         const versionKeysAsStrings = this._versionKeysAsStrings;
-        const state = this.state;
+        const changes = [];
+        let changeCount = 0;
+        const versionKeys = this._versionKeys;
 
         let version = iterator.data();
-        let keyAsString;
 
         do {
 
-            keyAsString = versionKeysAsStrings.get(version);
-            stringChanges[changeCount++] = [
-                keyAsString, 
-                state.ValAsStringOfKeyAsString(keyAsString),
-                ];
+            val = stateMap.get(versionKeysAsStrings.get(version));
+
+            if (val === undefined) {
+                val = defaultVal;
+            }
+
+            changes[changeCount++] = [versionKeys.get(version), val];
 
         } while ((version = iterator.next()) !== null);
 
-        return stringChanges;
+        return changes;
 
     }
 
-    _writeIntentAndReturnItsInfo (intent, intentAsString, isFromStorage) {
+    _writeIntentAndReturnItsInfo (intent, isFromStorage) {
 
-        const info = super._writeIntentAndReturnItsInfo(
-            intent, intentAsString, isFromStorage
-            );
+        const info = super._writeIntentAndReturnItsInfo(intent, isFromStorage);
 
-        let i;
-        const changeEvents = info.changeEvents;
-        const changeCount = changeEvents.length;
-        let e;
-        const stringChanges = [];
+        const changes = info.changes;
 
-        for (i=0; i<changeCount; i++) {
+        const changesAsJson = AsJson(changes);
 
-            e = changeEvents[i];
-            stringChanges[i] = [e.keyAsString, e.valAsString];
+        this._changesAsJsonStorage.addToWriteQueue(changesAsJson);
 
-        }
-
-        const stringChangesAsJson = AsJson(stringChanges);
-
-        this._stringChangesAsJsonStorage.addToWriteQueue(stringChangesAsJson);
-
-        info.stringChangesAsJson = stringChangesAsJson;
+        info.changesAsJson = changesAsJson;
 
         return info;
 
@@ -142,16 +127,16 @@ module.exports = class extends Collab {
     sync (clientInputAsJson) {
 
         const id = this._id;
-        let newStringChanges = 0; // i.e. undefined
-        let intentStringChangesAsJsonArray = 0; // i.e. undefined
-        let rejectedInput = 0; // i.e. false
+        let newChanges = 0; // i.e. undefined
+        let intentChangesAsJsonArray = 0; // i.e. undefined
+        let inputWasRejected = 0; // i.e. false
 
         try {
 
             let clientInput;
             try {
                 clientInput = FromJson(clientInputAsJson);
-                //^ should contain [serverId, version, intentsAsStrings]
+                //^ should contain [id, version, intentsAsStrings]
             }
             catch (error) {
                 rejectBadInput(error);
@@ -159,13 +144,14 @@ module.exports = class extends Collab {
             if (clientInput === null) {
                 rejectBadInput(new AssertionError());
             }
+
             let version;
 
             if (clientInput[0] === id) {
 
                 version = clientInput[1];
 
-                newStringChanges = this._VersionTreeStringChangesSince(
+                newChanges = this._VersionTreeChangesSince(
                     this._deletionVersionTree, 
                     version,
                     );
@@ -177,9 +163,9 @@ module.exports = class extends Collab {
 
             }
 
-            if (newStringChanges === 0) { // i.e. undefined
+            if (newChanges === 0) { // i.e. undefined
 
-                newStringChanges = this._VersionTreeStringChangesSince(
+                newChanges = this._VersionTreeChangesSince(
                     this._versionTree, 
                     version,
                     );
@@ -188,17 +174,17 @@ module.exports = class extends Collab {
             else {
 
                 let i;
-                const moreStringChanges = this._VersionTreeStringChangesSince(
+                const moreChanges = this._VersionTreeChangesSince(
                     this._versionTree, 
                     version,
                     );
-                let changeCount = newStringChanges.length;
+                let changeCount = newChanges.length;
 
-                for (i=moreStringChanges.length-1; i>=0; i--) {
+                for (i=moreChanges.length-1; i>=0; i--) {
                 //^ reverse iteration is fine since trees don't contain 
                 //  overwritten changes
 
-                    newStringChanges[changeCount++] = moreStringChanges[i];
+                    newChanges[changeCount++] = moreChanges[i];
 
                 }
 
@@ -216,32 +202,20 @@ module.exports = class extends Collab {
                 } catch (error) {
                     rejectBadInput(error);
                 }
-                let s;
                 let n;
-                const IntentFromString = this._IntentFromString;
-                let changes;
-                let changeCount;
-                let stringChanges;
-                let j;
-                let c;
-                intentStringChangesAsJsonArray = intentsAsStrings; 
+                intentChangesAsJsonArray = intentsAsStrings; 
                 //^ they share the same array because they can and we want  
                 //  server sync to be fast
 
                 for (i=0; i<intentCount; i++) {
 
-                    s = intentsAsStrings[i];
-                    if (typeof s !== `string`) {
-                        rejectBadInput(new AssertionError());
-                    }
                     try {
-                        n = IntentFromString(s);
+                        n = FromJson(intentsAsStrings[i]);
                     } catch (error) {
                         rejectBadInput(error);
                     }
-                    intentStringChangesAsJsonArray[i] = (
-                        this._writeIntentAndReturnItsInfo(n, s, false)
-                        .stringChangesAsJson
+                    intentChangesAsJsonArray[i] = (
+                        this._writeIntentAndReturnItsInfo(n, false).changesAsJson
                         );
 
                 }
@@ -255,7 +229,7 @@ module.exports = class extends Collab {
             if (error.rejectedBadInput === true 
             && error.hasOwnProperty(`reason`)) {
 
-                rejectedInput = 1; // i.e. true
+                inputWasRejected = 1; // i.e. true
                 console.log(error);
 
             }
@@ -268,8 +242,8 @@ module.exports = class extends Collab {
         }
 
         return AsJson(
-            [id, this._currentVersion, intentStringChangesAsJsonArray, 
-             newStringChanges, rejectedInput]
+            [id, this._currentVersion, intentChangesAsJsonArray, 
+             newChanges, inputWasRejected]
             );
 
     }
@@ -278,14 +252,15 @@ module.exports = class extends Collab {
 
         super._writeChangeEventToState(changeEvent);
 
+        const keyAsStringVersions = this._keyAsStringVersions;
         const keyAsString = changeEvent.keyAsString;
-        const keyAsStringVersions = keyAsStringVersions;
-        const versionKeysAsStrings = this._versionKeysAsStrings;
-        const defaultValAsString = defaultValAsString;
         const oldVersion = keyAsStringVersions.get(keyAsString);
+        const versionKeys = this._versionKeys;
+        const versionKeysAsStrings = this._versionKeysAsStrings;
 
         if (oldVersion !== undefined) {
 
+            versionKeys.delete(oldVersion);
             versionKeysAsStrings.delete(oldVersion);
 
             if (changeEvent.oldValAsString === defaultValAsString) {
@@ -305,6 +280,7 @@ module.exports = class extends Collab {
 
         keyAsStringVersions.set(keyAsString, newVersion);
 
+        versionKeys.set(newVersion, changeEvent.key);
         versionKeysAsStrings.set(newVersion, keyAsString);
 
         if (changeEvent.valAsString === defaultValAsString) {

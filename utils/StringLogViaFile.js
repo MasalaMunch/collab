@@ -5,8 +5,6 @@ const fs = require(`fs`);
 const AssertionError = require(`./AssertionError.js`);
 const stringFileEncoding = require(`./stringFileEncoding.js`);
 
-const fileOptions = {encoding: stringFileEncoding};
-
 module.exports = class {
 
     static IsSupported () {
@@ -27,7 +25,10 @@ module.exports = class {
         assert(typeof separator === `string`);
         this._separator = separator;
 
-        this._appendStream = undefined;
+        this._appendStream = fs.createWriteStream(
+            this._path, 
+            {flags: `a`, encoding: stringFileEncoding},
+            );
 
     }
 
@@ -37,7 +38,10 @@ module.exports = class {
 
         try {
 
-            fileAsString = fs.readFileSync(this._path, fileOptions);
+            fileAsString = fs.readFileSync(
+                this._path, 
+                {encoding: stringFileEncoding},
+                );
 
         } 
         catch (error) {
@@ -61,27 +65,7 @@ module.exports = class {
 
     clear () {
 
-        fs.writeFileSync(this._path, ``, fileOptions);
-
-    }
-
-    write (entry) {
-
-        assert(typeof entry === `string`);
-
-        fs.appendFileSync(this._path, entry+this._separator, fileOptions);
-
-    }
-
-    initializeWriteQueue () {
-
-        const streamOptions = {};
-
-        Object.assign(streamOptions, fileOptions);
-
-        streamOptions.flags = `a`;
-
-        this._appendStream = fs.createWriteStream(this._path, streamOptions);
+        fs.writeFileSync(this._path, ``, {encoding: stringFileEncoding});
 
     }
 

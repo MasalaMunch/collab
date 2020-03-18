@@ -4,6 +4,8 @@ const assert = require(`./assert.js`);
 const AssertionError = require(`./AssertionError.js`);
 const PrefixRegExp = require(`./PrefixRegExp.js`);
 
+const firstNumber = 0;
+
 const KeyAndNumberComparison = (a, b) => a[1] - b[1];
 
 module.exports = class {
@@ -34,7 +36,8 @@ module.exports = class {
             );
 
         this._nextNumber = (
-            (lastKeyAndNumber === undefined)? 0 : lastKeyAndNumber[1]+1
+            (lastKeyAndNumber === undefined)? 
+            firstNumber : lastKeyAndNumber[1]+1
             );
 
     }
@@ -109,21 +112,12 @@ module.exports = class {
 
         }
 
-        this._nextNumber = 0; 
+        this._nextNumber = firstNumber; 
         //^ not necessary, but might as well do it to reduce future key lengths
 
-        this._sortedKeysAndNumbers = undefined;
-        this._entries = undefined;
+        this._sortedKeysAndNumbers = [];
+        this._entries = [];
 
-    }
-
-    write (entry) {
-
-        this.addToWriteQueue(entry);
-
-    }
-
-    initializeWriteQueue () {
     }
 
     addToWriteQueue (entry) {

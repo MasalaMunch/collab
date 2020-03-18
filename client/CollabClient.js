@@ -55,7 +55,7 @@ module.exports = class extends Collab {
 
     }
 
-    _writeIntentAndReturnItsInfo (intent, intentAsString, isFromStorage) {
+    _writeIntentAndReturnItsInfo (intent, isFromStorage) {
 
         const info = super._writeIntentAndReturnItsInfo(
             intent, intentAsString, isFromStorage
