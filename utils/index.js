@@ -9,6 +9,7 @@ module.exports = {
     Collab: require(`./Collab.js`),
     CollabState: require(`./CollabState.js`),
     EmptyLog: require(`./EmptyLog.js`),
+    firstVersion: require(`./firstVersion.js`),
     FromJson: require(`./FromJson.js`),
     jsonSeparator: require(`./jsonSeparator.js`),
     rejectBadInput: require(`./rejectBadInput.js`), 

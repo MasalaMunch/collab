@@ -5,14 +5,11 @@ const JoinedPaths = require(`path`).join;
 const {assert, Collab, FakeValue, jsonSeparator, EmptyLog, StoredStringLog} 
     = require(`@masalamunch/collab-utils`);
 
-const CollabStateThatStoresVals = require(`./CollabStateThatStoresVals.js`);
-const nonexistentCollabServerId = require(`./nonexistentCollabServerId.js`);
+const nonexistentServerId = require(`./nonexistentServerId.js`);
 
 module.exports = class extends Collab {
 
     constructor (config) {
-
-        config.CollabState = CollabStateThatStoresVals;
 
         super(config);
 
@@ -37,9 +34,7 @@ module.exports = class extends Collab {
 
         }
 
-        const serverId = nonexistentCollabServerId;
-
-        this._currentVersion = -Infinity;
+        this._serverId = nonexistentServerId;
 
         this._unsyncedIntentsAsStrings = [];
         this._unsyncedActions = [];

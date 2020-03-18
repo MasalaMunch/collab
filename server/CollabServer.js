@@ -6,21 +6,15 @@ const RbTree = require(`bintrees`).RBTree;
 
 const {assert, Collab, rejectBadInput, AsJson, FromJson, EmptyLog, 
        StoredStringLog, jsonSeparator, AssertionError, defaultVal, 
-       defaultValAsString} = require(`@masalamunch/collab-utils`);
+       defaultValAsString, firstVersion} = require(`@masalamunch/collab-utils`);
 
 const NewCollabServerId = require(`./NewCollabServerId.js`);
-const CollabStateThatStoresValsAsStrings 
-    = require(`./CollabStateThatStoresValsAsStrings.js`);
 
 const VersionComparison = (a, b) => a - b;
-
-const firstVersion = 0;
 
 module.exports = class extends Collab {
 
     constructor (config) {
-
-        config.CollabState = CollabStateThatStoresValsAsStrings;
 
         super(config);
 
@@ -48,8 +42,6 @@ module.exports = class extends Collab {
 
         this._versionTree = new RbTree(VersionComparison);
         this._deletionVersionTree = new RbTree(VersionComparison);
-
-        this._currentVersion = firstVersion;
 
         const changesAsJsonStorage = this._changesAsJsonStorage;
 

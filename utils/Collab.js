@@ -8,6 +8,7 @@ const CollabState = require(`./CollabState.js`);
 const defaultVal = require(`./defaultVal.js`);
 const defaultValAsString = require(`./defaultValAsString.js`);
 const doNothing = require(`./doNothing.js`);
+const firstVersion = require(`./firstVersion.js`);
 const FromJson = require(`./FromJson.js`);
 const FromString = require(`./FromString.js`);
 const rejectBadInput = require(`./rejectBadInput.js`);
@@ -150,6 +151,8 @@ module.exports = class {
         this._nextAction = Number.MIN_SAFE_INTEGER;
         this._actionIntents = new Map();
         this._actionChangeEvents = new Map();
+
+        this._currentVersion = firstVersion;
 
     }
 
