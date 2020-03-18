@@ -4,7 +4,7 @@ const JoinedPaths = require(`path`).join;
 
 const RbTree = require(`bintrees`).RBTree;
 
-const {assert, Collab, rejectBadInput, AsJson, FromJson, EmptyLog, 
+const {Collab, rejectBadInput, AsJson, FromJson, EmptyLog, 
        StoredStringLog, jsonSeparator, AssertionError, defaultVal, 
        defaultValAsString, firstVersion} = require(`@masalamunch/collab-utils`);
 
@@ -35,6 +35,8 @@ module.exports = class extends Collab {
                 });
 
         }
+
+        this._currentVersion = firstVersion;
 
         this._versionKeys = new Map();
         this._versionKeysAsStrings = new Map();
@@ -100,9 +102,11 @@ module.exports = class extends Collab {
 
     }
 
-    _writeIntentAndReturnItsInfo (intent, isFromStorage) {
+    _writeIntentAndReturnItsInfo (intent, intentAsJson, isFromStorage) {
 
-        const info = super._writeIntentAndReturnItsInfo(intent, isFromStorage);
+        const info = super._writeIntentAndReturnItsInfo(
+            intent, intentAsJson, isFromStorage
+            );
 
         const changes = info.changes;
 
@@ -194,6 +198,7 @@ module.exports = class extends Collab {
                 } catch (error) {
                     rejectBadInput(error);
                 }
+                let s;
                 let n;
                 intentChangesAsJsonArray = intentsAsStrings; 
                 //^ they share the same array because they can and we want  
@@ -201,13 +206,17 @@ module.exports = class extends Collab {
 
                 for (i=0; i<intentCount; i++) {
 
+                    s = intentsAsStrings[i];
+                    if (typeof s !== `string`) {
+                        rejectBadInput(new AssertionError());
+                    }
                     try {
-                        n = FromJson(intentsAsStrings[i]);
+                        n = FromJson(s);
                     } catch (error) {
                         rejectBadInput(error);
                     }
                     intentChangesAsJsonArray[i] = (
-                        this._writeIntentAndReturnItsInfo(n, false).changesAsJson
+                        this._writeIntentAndReturnItsInfo(n, s, false).changesAsJson
                         );
 
                 }

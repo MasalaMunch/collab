@@ -2,7 +2,7 @@
 
 const JoinedPaths = require(`path`).join;
 
-const {assert, Collab, FakeValue, jsonSeparator, EmptyLog, StoredStringLog} 
+const {Collab, jsonSeparator, EmptyLog, StoredStringLog, firstVersion} 
     = require(`@masalamunch/collab-utils`);
 
 const nonexistentServerId = require(`./nonexistentServerId.js`);
@@ -21,7 +21,7 @@ module.exports = class extends Collab {
                 path: JoinedPaths(storagePath, `s`),
                 separator: jsonSeparator,
                 });
-            this._intentEventAsJsonStorage = new StoredStringLog({
+            this._actionEventAsJsonStorage = new StoredStringLog({
                 path: JoinedPaths(storagePath, `i`),
                 separator: jsonSeparator,
                 });
@@ -30,37 +30,89 @@ module.exports = class extends Collab {
         else {
 
             this._serverOutputAsJsonStorage = new EmptyLog();
-            this._intentEventAsJsonStorage = new EmptyLog();
+            this._actionEventAsJsonStorage = new EmptyLog();
 
         }
 
-        this._serverId = nonexistentServerId;
+        let i;
+        const serverOutputAsJsonStorage = this._serverOutputAsJsonStorage;
+        const serverOutputAsJsonArray = serverOutputAsJsonStorage.Entries();
+        const serverOutputCount = serverOutputAsJsonArray.length;
+        let serverOutput;
+        let serverId = nonexistentServerId;
+        let changesFromJsonArray = [];
+        let changesCount = 0;
+        let currentVersion = firstVersion;
+        let intentChangesAsJsonArray;
+        let intentCount;
+        let j;
 
-        this._unsyncedIntentsAsStrings = [];
-        this._unsyncedActions = [];
-        //^ used to fix the action history after these actions are synced with 
-        //  the server (their changeEvents might have changed!)
+        for (i=0; i<serverOutputCount; i++) {
+
+            serverOutput = FromJson(serverOutputAsJsonArray[i]);
+            //^ contains [serverId, version, intentChangesAsJsonArray, newChanges]
+
+            if (serverId !== serverOutput[0]) {
+
+                serverId = serverOutput[0];
+
+                changesFromJsonArray = [];
+                changesCount = 0;
+
+            }
+
+            currentVersion = serverOutput[1];
+
+            changesFromJsonArray[changesCount++] = serverOutput[3];
+
+            intentChangesAsJsonArray = serverOutput[2];
+            intentCount = intentChangesAsJsonArray.length;
+
+            for (j=0; j<intentCount; j++) {
+
+                changesFromJsonArray[changesCount++] = (
+                    FromJson(intentChangesAsJsonArray[j])
+                    );
+
+            }
+
+        }
+
+        this._serverId = serverId;
+        this._currentVersion = currentVersion;
+
+        const {partialChangeEvents, changes} = (
+            Collab._CompressedChangesFromJsonArray(changesFromJsonArray)
+            );
+
+        this._normalizeAndWritePartialChangeEventsToState(partialChangeEvents);
+        
+        serverOutputAsJsonStorage.clear();
+        serverOutputAsJsonStorage.addToWriteQueue(
+            AsJson([serverId, currentVersion, [], changes])
+            );
+
         this._unsyncedChangeEvents = new Map();
         //^ a {keyAsString -> changeEvent} map that represents the difference 
         //  between the synced state and the unsynced (current) state, it's used '
         //  to revert the client to the synced state before it applies changes 
         //  from the server
+        this._unsyncedActions = [];
+        //^ used to fix the action history after these actions are synced with 
+        //  the server (their changeEvents might have changed!)
+        this._unsyncedIntents = [];
 
-        //bm
+        //TODO read action event entries
 
     }
 
-    _writeIntentAndReturnItsInfo (intent, isFromStorage) {
+    _writeIntentAndReturnItsInfo (intent, intentAsJson, isFromStorage) {
 
         const info = super._writeIntentAndReturnItsInfo(
-            intent, intentAsString, isFromStorage
+            intent, intentAsJson, isFromStorage
             );
 
-        const unsyncedActions = this._unsyncedActions;
-        const unsyncedActionCount = unsyncedActions.length;
-
-        unsyncedActions[unsyncedActionCount] = info.action;
-        this._unsyncedIntentsAsStrings[unsyncedActionCount] = intentAsString;
+        this._actionEventAsJsonStorage.addToWriteQueue(AsJson([intentAsJson]));
 
         let i;
         const changeEvents = info.changeEvents;
@@ -78,7 +130,9 @@ module.exports = class extends Collab {
 
             if (u === undefined) {
 
-                unsyncedChangeEvents.set(keyAsString, Object.assign({}, e));
+                u = {};
+                Object.assign(u, e);
+                unsyncedChangeEvents.set(keyAsString, u);
 
             }
             else {
@@ -88,11 +142,13 @@ module.exports = class extends Collab {
 
             }
 
-
         }
 
-        //TODO write intent to in-memory buffer and storage buffer stream if not 
-        //     from storage
+        const unsyncedActions = this._unsyncedActions;
+        const unsyncedActionCount = unsyncedActions.length;
+
+        unsyncedActions[unsyncedActionCount] = info.action;
+        this._unsyncedIntents[unsyncedActionCount] = intent;
 
         return info;
 
@@ -106,7 +162,7 @@ module.exports = class extends Collab {
 
     finishSync (serverOutput) {
 
-        //TODO write all these changes atomically to storage stream
+
 
     }
 

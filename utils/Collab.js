@@ -8,7 +8,6 @@ const CollabState = require(`./CollabState.js`);
 const defaultVal = require(`./defaultVal.js`);
 const defaultValAsString = require(`./defaultValAsString.js`);
 const doNothing = require(`./doNothing.js`);
-const firstVersion = require(`./firstVersion.js`);
 const FromJson = require(`./FromJson.js`);
 const FromString = require(`./FromString.js`);
 const rejectBadInput = require(`./rejectBadInput.js`);
@@ -152,14 +151,21 @@ module.exports = class {
         this._actionIntents = new Map();
         this._actionChangeEvents = new Map();
 
-        this._currentVersion = firstVersion;
-
     }
 
     do (intent) {
 
+        let intentAsJson;
         try {
-            intent = FromJson(AsJson(intent));
+            intentAsJson = AsJson(intent);
+        } catch (error) {
+            rejectBadInput(error);
+        }
+        if (typeof intentAsJson !== `string`) {
+            rejectBadInput(new AssertionError());
+        }
+        try {
+            intent = FromJson(intentAsJson);
             //^ ensures that both the doer of the intent and others who receive 
             //  the intent as json will process the same thing in their 
             //  IntentAsChanges functions - in a perfect world this wouldn't be 
@@ -170,7 +176,7 @@ module.exports = class {
         }
 
         const {changeEvents, action} = (
-            this._writeIntentAndReturnItsInfo(intent, false)
+            this._writeIntentAndReturnItsInfo(intent, intentAsJson, false)
             );
 
         if (this._shouldRememberLocalActions) {
@@ -184,7 +190,7 @@ module.exports = class {
 
     }
 
-    _writeIntentAndReturnItsInfo (intent, isFromStorage) {
+    _writeIntentAndReturnItsInfo (intent, intentAsJson, isFromStorage) {
 
         const state = this._state;
         const derivedState = this._derivedState;
