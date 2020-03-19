@@ -60,3 +60,7 @@ module.exports = class {
     }
 
     };
+
+module.exports.AsString = JsoAsString;
+
+module.exports.FromString = JsoFromString;
