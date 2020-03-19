@@ -1,7 +1,7 @@
 "use strict";
 
-const JsoAsString = require(`./JsoAsString.js`);
 const defaultVal = require(`./defaultVal.js`);
+const JsoAsString = require(`./JsoAsString.js`);
 const JsoFromString = require(`./JsoFromString.js`);
 
 module.exports = class {

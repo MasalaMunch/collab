@@ -35,9 +35,10 @@ module.exports = class extends Collab {
 
         this._id = NewServerId();
 
+        this._keyAsStringVersions = new Map();
+        
         this._versionKeys = new Map();
         this._versionKeysAsStrings = new Map();
-        this._keyAsStringVersions = new Map();
 
         this._versionTree = new RbTree(VersionComparison);
         this._deletionVersionTree = new RbTree(VersionComparison);

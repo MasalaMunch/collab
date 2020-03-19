@@ -1,6 +1,5 @@
 "use strict";
 
-const defaultVal = require(`./defaultVal.js`);
 const defaultValAsString = require(`./defaultValAsString.js`);
 const JsoAsString = require(`./JsoAsString.js`);
 

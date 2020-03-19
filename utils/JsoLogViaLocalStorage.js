@@ -124,7 +124,10 @@ module.exports = class {
 
     addJsonToWriteQueue (entryAsJson) {
 
-        localStorage.setItem(this._prefix+String(this._nextNumber++), entryAsJson);
+        localStorage.setItem(
+            this._prefix+String(this._nextNumber++), 
+            entryAsJson,
+            );
 
         this._sortedKeysAndNumbers = undefined;
         this._entries = undefined;
