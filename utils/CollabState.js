@@ -1,6 +1,7 @@
 "use strict";
 
 const defaultVal = require(`./defaultVal.js`);
+const defaultValAsString = require(`./defaultValAsString.js`);
 const JsoAsString = require(`./JsoAsString.js`);
 const JsoFromString = require(`./JsoFromString.js`);
 
@@ -47,7 +48,8 @@ module.exports = class {
 
         const storedVal = this._map.get(keyAsString);
 
-        return (storedVal === undefined)? defaultVal : storedVal;   
+        return (storedVal === undefined)? 
+            defaultVal : storedVal;   
 
     }
 
@@ -55,7 +57,26 @@ module.exports = class {
 
         const storedVal = this._map.get(JsoAsString(key));
 
-        return (storedVal === undefined)? defaultVal : storedVal;
+        return (storedVal === undefined)? 
+            defaultVal : storedVal;
+
+    }
+
+    ValAsStringOfKeyAsString (keyAsString) {
+
+        const storedVal = this._map.get(keyAsString);
+
+        return (storedVal === undefined)? 
+            defaultValAsString : JsoAsString(storedVal); 
+
+    }
+
+    ValAsStringOf (key) {
+
+        const storedVal = this._map.get(JsoAsString(keyAsString));
+
+        return (storedVal === undefined)? 
+            defaultValAsString : JsoAsString(storedVal); 
 
     }
 
