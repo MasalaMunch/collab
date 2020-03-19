@@ -223,10 +223,18 @@ module.exports = class extends Collab {
             throw new AssertionError();
         }
         this._isSyncing = true;
-
         return JsoAsJson(
             [this._serverId, this._currentVersion, this._unsyncedIntents]
             );
+
+    }
+
+    cancelSync () {
+
+        if (!this._isSyncing) {
+            throw new AssertionError();
+        }
+        this._isSyncing = false;
 
     }
 
@@ -368,15 +376,6 @@ module.exports = class extends Collab {
 
         this._unsyncedActions = unsyncedActions.slice(intentCount);
         this._unsyncedIntents = unsyncedIntents.slice(intentCount);
-
-    }
-
-    cancelSync () {
-
-        if (!this._isSyncing) {
-            throw new AssertionError();
-        }
-        this._isSyncing = false;
 
     }
 
