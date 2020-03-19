@@ -4,10 +4,11 @@ const JoinedPaths = require(`path`).join;
 
 const RbTree = require(`bintrees`).RBTree;
 
-const {Collab, rejectBadInput, JsoAsJson, JsoFromJson, EmptyJsoLog, StoredJsoLog, 
+const {assert, Collab, rejectBadInput, JsoAsJson, JsoFromJson, EmptyJsoLog, StoredJsoLog, 
        AssertionError, defaultVal, defaultValAsString, firstVersion, 
        CompressedChangesArray} = require(`@masalamunch/collab-utils`);
 
+const IsFromRejectBadInput = require(`./IsFromRejectBadInput.js`);
 const NewServerId = require(`./NewServerId.js`);
 
 const VersionComparison = (a, b) => a - b;
@@ -18,7 +19,7 @@ module.exports = class extends Collab {
 
         super(config);
 
-        const {storagePath} = config;
+        const {storagePath, handleClientInputRejection} = config;
 
         if (storagePath === undefined) {
 
@@ -32,6 +33,13 @@ module.exports = class extends Collab {
                 });
 
         }
+
+        if (handleClientInputRejection === undefined) {
+            handleClientInputRejection = console.log.bind(console);
+        }
+
+        assert(typeof handleClientInputRejection === `function`);
+        this._handleClientInputRejection = handleClientInputRejection;
 
         this._id = NewServerId();
 
@@ -193,10 +201,28 @@ module.exports = class extends Collab {
 
                 for (i=0; i<intentCount; i++) {
 
-                    intentChangesAsJsonArray[i] = (
-                        this._writeIntentAndReturnItsInfo(intents[i])
-                        .changesAsJson
-                        );
+                    try {
+
+                        intentChangesAsJsonArray[i] = (
+                            this._writeIntentAndReturnItsInfo(intents[i])
+                            .changesAsJson
+                            );
+
+                    } catch (error) {
+
+                        if (IsFromRejectBadInput(error)) {
+
+                            intentChangesAsJsonArray[i] = 0; // i.e. rejected
+                            handleClientInputRejection(error.reason);
+
+                        }
+                        else {
+
+                            throw error;
+
+                        }
+
+                    }
 
                 }
 
@@ -206,11 +232,10 @@ module.exports = class extends Collab {
 
         } catch (error) {
 
-            if (error.rejectedBadInput === true 
-            && error.hasOwnProperty(`reason`)) {
+            if (IsFromRejectBadInput(error)) {
 
                 inputWasRejected = 1; // i.e. true
-                console.log(error);
+                handleClientInputRejection(error.reason);
 
             }
             else {

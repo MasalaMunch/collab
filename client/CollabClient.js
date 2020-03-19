@@ -2,8 +2,8 @@
 
 const JoinedPaths = require(`path`).join;
 
-const {Collab, EmptyJsoLog, StoredJsoLog, JsoAsJson, JsoFromJson,
-       CompressedChangesArray} = require(`@masalamunch/collab-utils`);
+const {assert, AssertionError, Collab, EmptyJsoLog, StoredJsoLog, JsoAsJson, JsoFromJson,
+       CompressedChangesArray, doNothing, firstVersion, JsoFromString, JsoAsString, defaultValAsString, defaultVal} = require(`@masalamunch/collab-utils`);
 
 const nonexistentServerId = require(`./nonexistentServerId.js`);
 const Queue = require(`./Queue.js`);
@@ -14,7 +14,7 @@ module.exports = class extends Collab {
 
         super(config);
 
-        const {storagePath} = config;
+        const {storagePath, handleServerChange} = config;
 
         if (storagePath === undefined) {
 
@@ -33,7 +33,16 @@ module.exports = class extends Collab {
 
         }
 
+        if (handleServerChange === undefined) {
+            handleServerChange = doNothing;
+        }
+
+        assert(typeof handleServerChange === `function`);
+        this._handleServerChange = handleServerChange;
+
         this._serverId = nonexistentServerId;
+
+        this._isSyncing = false;
 
         this._unsyncedChangeEvents = new Map();
         //^ a {keyAsString -> changeEvent} map that represents the difference 
@@ -64,6 +73,7 @@ module.exports = class extends Collab {
         let intentChangesAsJsonArray;
         let intentCount;
         let j;
+        let intentChanges;
 
         for (i=0; i<serverOutputCount; i++) {
 
@@ -79,8 +89,6 @@ module.exports = class extends Collab {
 
             }
 
-            //TODO what if client input was rejected?
-
             currentVersion = serverOutput[1];
 
             changesArray[changesCount++] = serverOutput[3];
@@ -90,9 +98,13 @@ module.exports = class extends Collab {
 
             for (j=0; j<intentCount; j++) {
 
-                changesArray[changesCount++] = (
-                    JsoFromJson(intentChangesAsJsonArray[j])
-                    );
+                intentChanges = JsoFromJson(intentChangesAsJsonArray[j]);
+
+                if (intentChanges !== 0) { // i.e. not rejected by server
+
+                    changesArray[changesCount++] = intentChanges;
+
+                }
 
             }
 
@@ -207,19 +219,164 @@ module.exports = class extends Collab {
 
     startSync () {
 
+        if (this._isSyncing) {
+            throw new AssertionError();
+        }
+        this._isSyncing = true;
 
+        return JsoAsJson(
+            [this._serverId, this._currentVersion, this._unsyncedIntents]
+            );
 
     }
 
-    finishSync (serverOutput) {
+    finishSync (serverOutputAsJson) {
 
+        if (!this._isSyncing) {
+            throw new AssertionError();
+        }
+        this._isSyncing = false;
 
+        const serverOutput = JsoFromJson(serverOutputAsJson);
+        //^ contains [id, version, intentChangesAsJsonArray, newChanges, 
+        //            inputWasRejected]
+
+        if (serverOutput[4] === 1) { // if input was rejected
+            throw new AssertionError();
+        }
+
+        const intentChangesAsJsonArray = serverOutput[2];
+        const intentCount = intentChangesAsJsonArray.length;
+
+        this._intentEventStorage.addJsonToWriteQueue(JsoAsJson(intentCount));
+        this._serverOutputStorage.addJsonToWriteQueue(serverOutputAsJson);
+
+        const id = serverOutput[0];
+
+        if (this._serverId !== id && this._serverId !== nonexistentServerId) {
+
+            this._handleServerChange();
+
+            const partialChangeEvents = [];
+            let changeCount = 0;
+
+            for (const keyAsString of this._stateMap.keys()) {
+
+                partialChangeEvents[changeCount] = {
+                    keyAsString,
+                    key: JsoFromString(keyAsString),
+                    valAsString: defaultValAsString,
+                    val: defaultVal,
+                    };
+
+            }
+
+            this._normalizeAndWritePartialChangeEventsToState(partialChangeEvents);
+
+        }
+        else {
+
+            let oldVal;
+            let oldValAsString;
+
+            for (const e of this._unsyncedChangeEvents.values()) {
+
+                oldVal = e.oldVal;
+                oldValAsString = e.oldValAsString;
+
+                e.oldVal = e.val;
+                e.oldValAsString = e.valAsString;
+
+                e.val = oldVal;
+                e.valAsString = oldValAsString;
+
+                //^ reverse the change
+
+                this._writeChangeEventToState(e); 
+
+            }
+
+        }
+
+        this._unsyncedChangeEvents = new Map();
+
+        this._serverId = id;
+        this._currentVersion = serverOutput[1];
+
+        let i;
+        let intentChanges;
+        const intentChangesArray = intentChangesAsJsonArray;
+        const unsyncedIntents = this._unsyncedIntents;
+        const changesArray = [serverOutput[3]];
+        let changesCount = 1;
+
+        for (i=0; i<intentCount; i++) {
+
+            intentChanges = JsoFromJson(intentChangesAsJsonArray[i]);
+            intentChangesArray[i] = intentChanges;
+            if (intentChanges === 0) { // if intent was rejected
+                console.log(`an intent was rejected:`, unsyncedIntents[i]);
+            }
+            else {
+                changesArray[changesCount++] = intentChanges;
+            }
+
+        }
+
+        let changes;
+        let cCount;
+        let partialChangeEvents;
+        let j;
+        let c;
+        let key;
+        let val;
+
+        for (i=0; i<changesCount; i++) {
+
+            changes = changesArray[i];
+            cCount = changes.length;
+            partialChangeEvents = changes;
+
+            for (j=0; j<cCount; j++) {
+
+                c = changes[j];
+                key = c[0];
+                val = c[1];
+
+                partialChangeEvents[j] = {
+                    key,
+                    val,
+                    keyAsString: JsoAsString(key),
+                    valAsString: JsoAsString(val),
+                    };
+
+            }
+
+            this._normalizeAndWritePartialChangeEventsToState(partialChangeEvents);
+
+        }
+
+        const intentChangeEventsArray = intentChangesArray;
+        //^ changes have been replaced with partialChangeEvents and normalized
+
+        const actionChangeEvents = this._actionChangeEvents;
+        const unsyncedActions = this._unsyncedActions;
+
+        for (i=0; i<intentCount; i++) {
+            actionChangeEvents.set(unsyncedActions[i], intentChangeEventsArray[i]);
+        }
+
+        this._unsyncedActions = unsyncedActions.slice(intentCount);
+        this._unsyncedIntents = unsyncedIntents.slice(intentCount);
 
     }
 
     cancelSync () {
 
-
+        if (!this._isSyncing) {
+            throw new AssertionError();
+        }
+        this._isSyncing = false;
 
     }
 
