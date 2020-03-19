@@ -10,6 +10,9 @@ module.exports = class {
     constructor (map) {
 
         this._map = map;
+        
+        this.AsString = JsoAsString;
+        this.FromString = JsoFromString;
 
     }
 
@@ -62,26 +65,4 @@ module.exports = class {
 
     }
 
-    ValAsStringOfKeyAsString (keyAsString) {
-
-        const storedVal = this._map.get(keyAsString);
-
-        return (storedVal === undefined)? 
-            defaultValAsString : JsoAsString(storedVal); 
-
-    }
-
-    ValAsStringOf (key) {
-
-        const storedVal = this._map.get(JsoAsString(keyAsString));
-
-        return (storedVal === undefined)? 
-            defaultValAsString : JsoAsString(storedVal); 
-
-    }
-
     };
-
-module.exports.AsString = JsoAsString;
-
-module.exports.FromString = JsoFromString;

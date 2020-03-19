@@ -5,7 +5,6 @@ module.exports = {
     AssertionError: require(`./AssertionError.js`),
     ClassFactory: require(`./ClassFactory.js`),
     Collab: require(`./Collab.js`),
-    CollabState: require(`./CollabState.js`),
     CompressedChangesArray: require(`./CompressedChangesArray.js`),
     defaultVal: require(`./defaultVal.js`),
     defaultValAsString: require(`./defaultValAsString.js`),

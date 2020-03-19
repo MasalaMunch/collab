@@ -2,7 +2,7 @@
 
 const JoinedPaths = require(`path`).join;
 
-const {Collab, jsonSeparator, EmptyJsoLog, StoredJsoLog, 
+const {Collab, EmptyJsoLog, StoredJsoLog, JsoAsJson, JsoFromJson,
        CompressedChangesArray} = require(`@masalamunch/collab-utils`);
 
 const nonexistentServerId = require(`./nonexistentServerId.js`);
