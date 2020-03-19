@@ -2,10 +2,11 @@
 
 const JoinedPaths = require(`path`).join;
 
-const {Collab, jsonSeparator, EmptyLog, StoredStringLog, firstVersion} 
-    = require(`@masalamunch/collab-utils`);
+const {Collab, jsonSeparator, EmptyJsoLog, StoredJsoLog, 
+       CompressedChangesArray} = require(`@masalamunch/collab-utils`);
 
 const nonexistentServerId = require(`./nonexistentServerId.js`);
+const Queue = require(`./Queue.js`);
 
 module.exports = class extends Collab {
 
@@ -17,80 +18,22 @@ module.exports = class extends Collab {
 
         if (storagePath === undefined) {
 
-            this._serverOutputAsJsonStorage = new StoredStringLog({
+            this._serverOutputStorage = new StoredJsoLog({
                 path: JoinedPaths(storagePath, `s`),
-                separator: jsonSeparator,
                 });
-            this._actionEventAsJsonStorage = new StoredStringLog({
+            this._intentEventStorage = new StoredJsoLog({
                 path: JoinedPaths(storagePath, `i`),
-                separator: jsonSeparator,
                 });
 
         }
         else {
 
-            this._serverOutputAsJsonStorage = new EmptyLog();
-            this._actionEventAsJsonStorage = new EmptyLog();
+            this._serverOutputStorage = new EmptyJsoLog();
+            this._intentEventStorage = new EmptyJsoLog();
 
         }
 
-        let i;
-        const serverOutputAsJsonStorage = this._serverOutputAsJsonStorage;
-        const serverOutputAsJsonArray = serverOutputAsJsonStorage.Entries();
-        const serverOutputCount = serverOutputAsJsonArray.length;
-        let serverOutput;
-        let serverId = nonexistentServerId;
-        let changesFromJsonArray = [];
-        let changesCount = 0;
-        let currentVersion = firstVersion;
-        let intentChangesAsJsonArray;
-        let intentCount;
-        let j;
-
-        for (i=0; i<serverOutputCount; i++) {
-
-            serverOutput = FromJson(serverOutputAsJsonArray[i]);
-            //^ contains [serverId, version, intentChangesAsJsonArray, newChanges]
-
-            if (serverId !== serverOutput[0]) {
-
-                serverId = serverOutput[0];
-
-                changesFromJsonArray = [];
-                changesCount = 0;
-
-            }
-
-            currentVersion = serverOutput[1];
-
-            changesFromJsonArray[changesCount++] = serverOutput[3];
-
-            intentChangesAsJsonArray = serverOutput[2];
-            intentCount = intentChangesAsJsonArray.length;
-
-            for (j=0; j<intentCount; j++) {
-
-                changesFromJsonArray[changesCount++] = (
-                    FromJson(intentChangesAsJsonArray[j])
-                    );
-
-            }
-
-        }
-
-        this._serverId = serverId;
-        this._currentVersion = currentVersion;
-
-        const {partialChangeEvents, changes} = (
-            Collab._CompressedChangesFromJsonArray(changesFromJsonArray)
-            );
-
-        this._normalizeAndWritePartialChangeEventsToState(partialChangeEvents);
-        
-        serverOutputAsJsonStorage.clear();
-        serverOutputAsJsonStorage.addToWriteQueue(
-            AsJson([serverId, currentVersion, [], changes])
-            );
+        this._serverId = nonexistentServerId;
 
         this._unsyncedChangeEvents = new Map();
         //^ a {keyAsString -> changeEvent} map that represents the difference 
@@ -102,17 +45,125 @@ module.exports = class extends Collab {
         //  the server (their changeEvents might have changed!)
         this._unsyncedIntents = [];
 
-        //TODO read action event entries
+        this._loadServerOutputStorage();
+        this._loadIntentEventStorage();
 
     }
 
-    _writeIntentAndReturnItsInfo (intent, intentAsJson, isFromStorage) {
+    _loadServerOutputStorage () {
 
-        const info = super._writeIntentAndReturnItsInfo(
-            intent, intentAsJson, isFromStorage
+        let i;
+        const serverOutputStorage = this._serverOutputStorage;
+        const serverOutputArray = serverOutputStorage.Entries();
+        const serverOutputCount = serverOutputArray.length;
+        let serverOutput;
+        let serverId = this._serverId;
+        let currentVersion = this._currentVersion;
+        let changesArray = [];
+        let changesCount = 0;
+        let intentChangesAsJsonArray;
+        let intentCount;
+        let j;
+
+        for (i=0; i<serverOutputCount; i++) {
+
+            serverOutput = serverOutputArray[i];
+            //^ contains [serverId, version, intentChangesAsJsonArray, newChanges]
+
+            if (serverId !== serverOutput[0]) {
+
+                serverId = serverOutput[0];
+
+                changesArray = [];
+                changesCount = 0;
+
+            }
+
+            //TODO what if client input was rejected?
+
+            currentVersion = serverOutput[1];
+
+            changesArray[changesCount++] = serverOutput[3];
+
+            intentChangesAsJsonArray = serverOutput[2];
+            intentCount = intentChangesAsJsonArray.length;
+
+            for (j=0; j<intentCount; j++) {
+
+                changesArray[changesCount++] = (
+                    JsoFromJson(intentChangesAsJsonArray[j])
+                    );
+
+            }
+
+        }
+
+        this._serverId = serverId;
+        this._currentVersion = currentVersion;
+
+        const {partialChangeEvents, changes} = (
+            CompressedChangesArray(changesArray)
             );
 
-        this._actionEventAsJsonStorage.addToWriteQueue(AsJson([intentAsJson]));
+        this._normalizeAndWritePartialChangeEventsToState(partialChangeEvents);
+        
+        serverOutputStorage.clear();
+        serverOutputStorage.addJsonToWriteQueue(JsoAsJson(
+            [serverId, currentVersion, [], changes]
+            ));
+
+    }
+
+    _loadIntentEventStorage () {
+
+        const intentEventStorage = this._intentEventStorage;
+        const intentEvents = intentEventStorage.Entries();
+        const intentEventCount = intentEvents.length;
+        let e;
+        const intentQueue = new Queue();
+        intentCount = 0;
+
+        for (i=0; i<intentEventCount; i++) {
+
+            e = intentEvents[i];
+
+            if (typeof e === `number`) {
+
+                for (j=0; j<e; j++) {
+
+                    intentQueue.deleteOldestItem();
+
+                }
+
+                intentCount -= e;
+
+            }
+            else { // e contains [intent]
+
+                intentQueue.add(e[0]);
+
+                intentCount++;
+
+            }
+
+        }
+
+        intentEventStorage.clear();
+
+        for (i=0; i<intentCount; i++) {
+
+            this._writeIntentAndReturnItsInfo(intentQueue.OldestItem());
+            intentQueue.deleteOldestItem();
+
+        }
+
+    }
+
+    _writeIntentAndReturnItsInfo (intent) {
+
+        const info = super._writeIntentAndReturnItsInfo(intent);
+
+        this._intentEventStorage.addJsonToWriteQueue(JsoAsJson([intent]));
 
         let i;
         const changeEvents = info.changeEvents;

@@ -1,17 +1,18 @@
 "use strict";
 
 module.exports = {
-    AsJson: require(`./AsJson.js`),
     assert: require(`./assert.js`),
     AssertionError: require(`./AssertionError.js`),
-    AsString: require(`./AsString.js`),
     ClassFactory: require(`./ClassFactory.js`),
     Collab: require(`./Collab.js`),
     CollabState: require(`./CollabState.js`),
-    EmptyLog: require(`./EmptyLog.js`),
+    CompressedChangesArray: require(`./CompressedChangesArray.js`),
+    defaultVal: require(`./defaultVal.js`),
+    defaultValAsString: require(`./defaultValAsString.js`),
+    EmptyJsoLog: require(`./EmptyJsoLog.js`),
     firstVersion: require(`./firstVersion.js`),
-    FromJson: require(`./FromJson.js`),
-    jsonSeparator: require(`./jsonSeparator.js`),
+    JsoAsJson: require(`./JsoAsJson.js`),
+    JsoFromJson: require(`./JsoFromJson.js`),
     rejectBadInput: require(`./rejectBadInput.js`), 
-    StoredStringLog: require(`./StoredStringLog.js`),
+    StoredJsoLog: require(`./StoredJsoLog.js`),
     };

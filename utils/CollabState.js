@@ -1,8 +1,8 @@
 "use strict";
 
-const AsString = require(`./AsString.js`);
+const JsoAsString = require(`./JsoAsString.js`);
 const defaultVal = require(`./defaultVal.js`);
-const FromString = require(`./FromString.js`);
+const JsoFromString = require(`./JsoFromString.js`);
 
 module.exports = class {
 
@@ -27,7 +27,7 @@ module.exports = class {
     *Keys () {
 
         for (const keyAsString of this._map.keys()) {
-            yield FromString(keyAsString);
+            yield JsoFromString(keyAsString);
         }
         
     }
@@ -39,7 +39,7 @@ module.exports = class {
 
     Has (key) {
 
-        return this._map.has(AsString(key));
+        return this._map.has(JsoAsString(key));
 
     }
 
@@ -53,7 +53,7 @@ module.exports = class {
 
     ValOf (key) {
 
-        const storedVal = this._map.get(AsString(key));
+        const storedVal = this._map.get(JsoAsString(key));
 
         return (storedVal === undefined)? defaultVal : storedVal;
 

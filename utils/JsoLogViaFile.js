@@ -3,7 +3,10 @@
 const fs = require(`fs`);
 
 const AssertionError = require(`./AssertionError.js`);
-const stringFileEncoding = require(`./stringFileEncoding.js`);
+const JsoFromJson = require(`./JsoFromJson.js`);
+
+const encoding = `utf8`;
+const separator = `\n`;
 
 module.exports = class {
 
@@ -18,16 +21,12 @@ module.exports = class {
 
     }
 
-    constructor ({path, separator}) {
+    constructor ({path}) {
 
         this._path = path;
 
-        assert(typeof separator === `string`);
-        this._separator = separator;
-
         this._appendStream = fs.createWriteStream(
-            this._path, 
-            {flags: `a`, encoding: stringFileEncoding},
+            this._path, {encoding, flags: `a`}
             );
 
     }
@@ -38,10 +37,7 @@ module.exports = class {
 
         try {
 
-            fileAsString = fs.readFileSync(
-                this._path, 
-                {encoding: stringFileEncoding},
-                );
+            fileAsString = fs.readFileSync(this._path, {encoding});
 
         } 
         catch (error) {
@@ -55,9 +51,19 @@ module.exports = class {
 
         }
 
-        const entries = fileAsString.split(this._separator);
+        const entriesAsJson = fileAsString.split(separator);
 
-        entries.pop();
+        entriesAsJson.pop();
+
+        let i;
+        const entryCount = entriesAsJson.length;
+        const entries = entriesAsJson;
+
+        for (i=0; i<entryCount; i++) {
+
+            entries[i] = JsoFromJson(entriesAsJson[i]);
+
+        }
 
         return entries;
 
@@ -65,20 +71,16 @@ module.exports = class {
 
     clear () {
 
-        fs.writeFileSync(this._path, ``, {encoding: stringFileEncoding});
+        fs.writeFileSync(this._path, ``, {encoding});
 
     }
 
-    addToWriteQueue (entry) {
-
-        if (typeof entry !== `string`) {
-            throw new AssertionError();
-        }
+    addJsonToWriteQueue (entryAsJson) {
 
         const s = this._appendStream;
 
-        s.write(entry);
-        s.write(this._separator);
+        s.write(entryAsJson);
+        s.write(separator);
 
     }
 

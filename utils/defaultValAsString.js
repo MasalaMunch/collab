@@ -1,6 +1,6 @@
 "use strict";
 
-const AsString = require(`./AsString.js`);
+const JsoAsString = require(`./JsoAsString.js`);
 const defaultVal = require(`./defaultVal.js`);
 
-module.exports = AsString(defaultVal);
+module.exports = JsoAsString(defaultVal);

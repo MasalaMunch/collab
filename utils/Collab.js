@@ -1,118 +1,21 @@
 "use strict";
 
-const AsJson = require(`./AsJson.js`);
 const assert = require(`./assert.js`);
 const AssertionError = require(`./AssertionError.js`);
-const AsString = require(`./AsString.js`);
 const CollabState = require(`./CollabState.js`);
 const defaultVal = require(`./defaultVal.js`);
 const defaultValAsString = require(`./defaultValAsString.js`);
 const doNothing = require(`./doNothing.js`);
-const FromJson = require(`./FromJson.js`);
-const FromString = require(`./FromString.js`);
+const firstVersion = require(`./firstVersion.js`);
+const JsoAsJson = require(`./JsoAsJson.js`);
+const JsoAsString = require(`./JsoAsString.js`);
+const JsoFromJson = require(`./JsoFromJson.js`);
+const JsoFromString = require(`./JsoFromString.js`);
 const rejectBadInput = require(`./rejectBadInput.js`);
 
 const DefaultIntentAsChanges = (intent, state, derivedState) => intent;
 
 module.exports = class {
-
-    static _CompressedChangesFromJsonArray (changesFromJsonArray) {
-
-        let i;
-        let changesFromJson;
-        let j;
-        let c;
-        let key;
-        let keyAsString;
-        const overwrittenKeysAsStrings = new Set();
-        let val;
-        let valAsString;
-        const allChanges = [];
-        const allPartialChangeEvents = [];
-        let totalChangeCount = 0;
-
-        for (i=changesFromJsonArray.length-1; i>=0; i--) {
-
-            changesFromJson = changesFromJsonArray[i];
-
-            for (j=changesFromJson.length-1; j>=0; j--) {
-
-                c = changesFromJson[j]; // contains [key, val]
-
-                key = c[0];
-                keyAsString = AsString(key);
-
-                if (!overwrittenKeysAsStrings.has(keyAsString)) {
-
-                    overwrittenKeysAsStrings.add(keyAsString);
-
-                    val = c[1];
-                    valAsString = AsString(val);
-
-                    if (valAsString !== defaultValAsString) {
-
-                        allChanges[totalChangeCount] = c;
-
-                        allPartialChangeEvents[totalChangeCount] = (
-                            {key, keyAsString, val, valAsString}
-                            );
-
-                        totalChangeCount++;
-
-                    }
-
-                }
-
-            }
-
-        }
-        //^ filter out changes that:
-        //
-        //      are overwritten by a later change
-        //      are deletions (valAsString === defaultValAsString)
-        //
-        //  (the remaining changes can be returned in the opposite order 
-        //   they happened because they contain no overwritten changes)
-
-        return {
-            changes: allChanges, 
-            partialChangeEvents: allPartialChangeEvents,
-            };
-
-    }
-
-    _normalizeAndWritePartialChangeEventsToState (partialChangeEvents) {
-
-        let i;
-        const changeCount = partialChangeEvents.length;
-        let e;
-        let storedVal;
-        const stateMap = this._stateMap;
-
-        for (i=0; i<changeCount; i++) {
-
-            e = partialChangeEvents[i];
-
-            storedVal = stateMap.get(e.keyAsString);
-
-            if (storedVal === undefined) {
-
-                e.oldVal = defaultVal;
-                e.oldValAsString = defaultValAsString;
-
-            }
-            else {
-
-                e.oldVal = storedVal;
-                e.oldValAsString = AsString(storedVal);
-
-            }
-
-            this._writeChangeEventToState(e);
-
-        }
-
-    }
 
     constructor ({schema,
                   handleChangeEvent=doNothing,
@@ -151,21 +54,14 @@ module.exports = class {
         this._actionIntents = new Map();
         this._actionChangeEvents = new Map();
 
+        this._currentVersion = firstVersion;
+
     }
 
     do (intent) {
 
-        let intentAsJson;
         try {
-            intentAsJson = AsJson(intent);
-        } catch (error) {
-            rejectBadInput(error);
-        }
-        if (typeof intentAsJson !== `string`) {
-            rejectBadInput(new AssertionError());
-        }
-        try {
-            intent = FromJson(intentAsJson);
+            intent = JsoFromJson(JsoAsJson(intent));
             //^ ensures that both the doer of the intent and others who receive 
             //  the intent as json will process the same thing in their 
             //  IntentAsChanges functions - in a perfect world this wouldn't be 
@@ -175,9 +71,7 @@ module.exports = class {
             rejectBadInput(error);
         }
 
-        const {changeEvents, action} = (
-            this._writeIntentAndReturnItsInfo(intent, intentAsJson, false)
-            );
+        const {changeEvents, action} = this._writeIntentAndReturnItsInfo(intent);
 
         if (this._shouldRememberLocalActions) {
 
@@ -190,15 +84,23 @@ module.exports = class {
 
     }
 
-    _writeIntentAndReturnItsInfo (intent, intentAsJson, isFromStorage) {
 
-        const state = this._state;
-        const derivedState = this._derivedState;
+    IntentOfAction (action) {
+        return this._actionIntents.get(action);
+    }
+
+    ChangeEventsOfAction (action) {
+        return this._actionChangeEvents.get(action);
+    }
+
+    _writeIntentAndReturnItsInfo (intent) {
         
         let changes;
         let changeCount;
         try {
-            changes = this._IntentAsChanges(intent, state, derivedState);
+            changes = (
+                this._IntentAsChanges(intent, this._state, this._derivedState)
+                );
             changeCount = changes.length;
         } catch (error) {
             rejectBadInput(error);
@@ -213,15 +115,15 @@ module.exports = class {
         const partialChangeEvents = [];
         
         for (i=0; i<changeCount; i++) {
-        //^ don't need to check if changeCount is Infinity because AsString 
-        //  doesn't for undefined input, meaning the input will eventually be
-        //  rejected
+        //^ don't need to check if changeCount is Infinity because JsoAsString 
+        //  doesn't return a string for undefined input, meaning the input will 
+        //  eventually berejected
 
             c = changes[i]; // c contains [key, val]
 
             try {
-                keyAsString = AsString(c[0]);
-                valAsString = AsString(c[1]);
+                keyAsString = JsoAsString(c[0]);
+                valAsString = JsoAsString(c[1]);
             }
             catch (error) {
                 rejectBadInput(error);
@@ -233,14 +135,14 @@ module.exports = class {
                 rejectBadInput(new AssertionError());
             }
 
-            key = FromString(keyAsString);
-            val = FromString(valAsString);
+            key = JsoFromString(keyAsString);
+            val = JsoFromString(valAsString);
             c[0] = key;
             c[1] = val;
             //^ ensures that both the doer of the intent and others who receive 
             //  the intent's changes will process the same key  and val in their 
             //  _writeChangeEventToState functions - in  a perfect world this 
-            //  wouldn't be necessary, but it's   here because it makes it 
+            //  wouldn't be necessary, but it's here because it makes it 
             //  impossible to introduce certain tricky-to-debug bugs
 
             partialChangeEvents[i] = {keyAsString, valAsString, key, val};
@@ -256,6 +158,39 @@ module.exports = class {
             //  normalized
             action: this._nextAction++,
             };
+
+    }
+
+    _normalizeAndWritePartialChangeEventsToState (partialChangeEvents) {
+
+        let i;
+        const changeCount = partialChangeEvents.length;
+        let e;
+        let storedVal;
+        const stateMap = this._stateMap;
+
+        for (i=0; i<changeCount; i++) {
+
+            e = partialChangeEvents[i];
+
+            storedVal = stateMap.get(e.keyAsString);
+
+            if (storedVal === undefined) {
+
+                e.oldVal = defaultVal;
+                e.oldValAsString = defaultValAsString;
+
+            }
+            else {
+
+                e.oldVal = storedVal;
+                e.oldValAsString = JsoAsString(storedVal);
+
+            }
+
+            this._writeChangeEventToState(e);
+
+        }
 
     }
 
@@ -278,14 +213,6 @@ module.exports = class {
         this._updateDerivedState(changeEvent, state, derivedState);
         this._handleChangeEvent(changeEvent, state, derivedState);
 
-    }
-
-    IntentOfAction (action) {
-        return this._actionIntents.get(action);
-    }
-
-    ChangeEventsOfAction (action) {
-        return this._actionChangeEvents.get(action);
     }
 
     };

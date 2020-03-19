@@ -4,11 +4,11 @@ const JoinedPaths = require(`path`).join;
 
 const RbTree = require(`bintrees`).RBTree;
 
-const {Collab, rejectBadInput, AsJson, FromJson, EmptyLog, 
-       StoredStringLog, jsonSeparator, AssertionError, defaultVal, 
-       defaultValAsString, firstVersion} = require(`@masalamunch/collab-utils`);
+const {Collab, rejectBadInput, JsoAsJson, JsoFromJson, EmptyJsoLog, StoredJsoLog, 
+       AssertionError, defaultVal, defaultValAsString, firstVersion, 
+       CompressedChangesArray} = require(`@masalamunch/collab-utils`);
 
-const NewCollabServerId = require(`./NewCollabServerId.js`);
+const NewServerId = require(`./NewServerId.js`);
 
 const VersionComparison = (a, b) => a - b;
 
@@ -20,23 +20,20 @@ module.exports = class extends Collab {
 
         const {storagePath} = config;
 
-        this._id = NewCollabServerId();
-
         if (storagePath === undefined) {
 
-            this._changesAsJsonStorage = new EmptyLog();
+            this._changesStorage = new EmptyJsoLog();
 
         }
         else {
 
-            this._changesAsJsonStorage = new StoredStringLog({
+            this._changesStorage = new StoredJsoLog({
                 path: JoinedPaths(storagePath, `c`),
-                separator: jsonSeparator,
                 });
 
         }
 
-        this._currentVersion = firstVersion;
+        this._id = NewServerId();
 
         this._versionKeys = new Map();
         this._versionKeysAsStrings = new Map();
@@ -45,27 +42,22 @@ module.exports = class extends Collab {
         this._versionTree = new RbTree(VersionComparison);
         this._deletionVersionTree = new RbTree(VersionComparison);
 
-        const changesAsJsonStorage = this._changesAsJsonStorage;
+        this._loadChangesStorage();
 
-        let i;
-        const changesAsJsonArray = changesAsJsonStorage.Entries();
-        const changesCount = changesAsJsonArray.length;
-        const changesFromJsonArray = [];
+    }
 
-        for (i=0; i<changeCount; i++) {
+    _loadChangesStorage () {
 
-            changesFromJsonArray[i] = FromJson(changesAsJsonArray[i]);
-
-        }
+        const changesStorage = this._changesStorage;
 
         const {partialChangeEvents, changes} = (
-            Collab._CompressedChangesFromJsonArray(changesFromJsonArray)
+            CompressedChangesArray(changesStorage.Entries())
             );
 
         this._normalizeAndWritePartialChangeEventsToState(partialChangeEvents);
         
-        changesAsJsonStorage.clear();
-        changesAsJsonStorage.addToWriteQueue(AsJson(changes));
+        changesStorage.clear();
+        changesStorage.addJsonToWriteQueue(JsoAsJson(changes));
 
     }
 
@@ -102,17 +94,13 @@ module.exports = class extends Collab {
 
     }
 
-    _writeIntentAndReturnItsInfo (intent, intentAsJson, isFromStorage) {
+    _writeIntentAndReturnItsInfo (intent) {
 
-        const info = super._writeIntentAndReturnItsInfo(
-            intent, intentAsJson, isFromStorage
-            );
+        const info = super._writeIntentAndReturnItsInfo(intent);
 
-        const changes = info.changes;
+        const changesAsJson = JsoAsJson(info.changes);
 
-        const changesAsJson = AsJson(changes);
-
-        this._changesAsJsonStorage.addToWriteQueue(changesAsJson);
+        this._changesStorage.addJsonToWriteQueue(changesAsJson);
 
         info.changesAsJson = changesAsJson;
 
@@ -131,8 +119,8 @@ module.exports = class extends Collab {
 
             let clientInput;
             try {
-                clientInput = FromJson(clientInputAsJson);
-                //^ should contain [id, version, intentsAsStrings]
+                clientInput = JsoFromJson(clientInputAsJson);
+                //^ should contain [id, version, intents]
             }
             catch (error) {
                 rejectBadInput(error);
@@ -191,32 +179,22 @@ module.exports = class extends Collab {
             if (clientInput[2] !== 0) { // i.e. undefined
 
                 let i;
-                const intentsAsStrings = clientInput[2];
+                const intents = clientInput[2];
                 let intentCount;
                 try {
-                    intentCount = intentsAsStrings.length;
+                    intentCount = intents.length;
                 } catch (error) {
                     rejectBadInput(error);
                 }
-                let s;
-                let n;
-                intentChangesAsJsonArray = intentsAsStrings; 
+                intentChangesAsJsonArray = intents; 
                 //^ they share the same array because they can and we want  
                 //  server sync to be fast
 
                 for (i=0; i<intentCount; i++) {
 
-                    s = intentsAsStrings[i];
-                    if (typeof s !== `string`) {
-                        rejectBadInput(new AssertionError());
-                    }
-                    try {
-                        n = FromJson(s);
-                    } catch (error) {
-                        rejectBadInput(error);
-                    }
                     intentChangesAsJsonArray[i] = (
-                        this._writeIntentAndReturnItsInfo(n, s, false).changesAsJson
+                        this._writeIntentAndReturnItsInfo(intents[i])
+                        .changesAsJson
                         );
 
                 }
@@ -242,9 +220,9 @@ module.exports = class extends Collab {
 
         }
 
-        return AsJson(
-            [id, this._currentVersion, intentChangesAsJsonArray, 
-             newChanges, inputWasRejected]
+        return JsoAsJson(
+            [id, this._currentVersion, intentChangesAsJsonArray, newChanges, 
+             inputWasRejected]
             );
 
     }

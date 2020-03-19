@@ -9,7 +9,7 @@ module.exports = class {
     clear () {
     }
 
-    addToWriteQueue () {
+    addJsonToWriteQueue () {
     }
 
     };
