@@ -80,26 +80,20 @@ module.exports = class {
 
     Entries () {
 
-        if (this._entries === undefined) {
+        let i;
+        const sortedKeysAndNumbers = this._SortedKeysAndNumbers();
+        const count = sortedKeysAndNumbers.length;
+        const entries = [];
 
-            let i;
-            const sortedKeysAndNumbers = this._SortedKeysAndNumbers();
-            const count = sortedKeysAndNumbers.length;
-            const entries = [];
+        for (i=0; i<count; i++) {
 
-            for (i=0; i<count; i++) {
-
-                entries[i] = JsoFromJson(
-                    localStorage.getItem(sortedKeysAndNumbers[i][0])
-                    );
-
-            }
-
-            this._entries = entries;
+            entries[i] = JsoFromJson(
+                localStorage.getItem(sortedKeysAndNumbers[i][0])
+                );
 
         }
 
-        return this._entries;
+        return entries;
 
     }
 
@@ -118,7 +112,6 @@ module.exports = class {
         //^ not necessary, but might as well do it to reduce future key lengths
 
         this._sortedKeysAndNumbers = [];
-        this._entries = [];
 
     }
 
@@ -130,7 +123,6 @@ module.exports = class {
             );
 
         this._sortedKeysAndNumbers = undefined;
-        this._entries = undefined;
 
     }
 
