@@ -2,14 +2,19 @@
 
 const StringLogViaFile = require(`./StringLogViaFile.js`);
 const StringLogViaLocalStorage = require(`./StringLogViaLocalStorage.js`);
-const EmptyLog = require(`./EmptyLog.js`);
 
-if (StringLogViaFile.IsSupported()) {
+const IsSupported = (Log) => {
+
+    return Log && typeof Log.IsSupported === `function` && Log.IsSupported();
+
+};
+
+if (IsSupported(StringLogViaFile)) {
 
     module.exports = StringLogViaFile;
 
 }
-else if (StringLogViaLocalStorage.IsSupported()) {
+else if (IsSupported(StringLogViaLocalStorage)) {
 
     module.exports = StringLogViaLocalStorage;
 
