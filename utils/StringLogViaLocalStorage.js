@@ -1,11 +1,11 @@
 "use strict";
 
-const assert = require(`./assert.js`);
-const AssertionError = require(`./AssertionError.js`);
-const JsoFromJson = require(`./JsoFromJson.js`);
-const PrefixRegExp = require(`./PrefixRegExp.js`);
+const EscapedForRegExp = require(`escape-string-regexp`);
+
+const PrefixRegExp = (string) => new RegExp(`^` + EscapedForRegExp(string));
 
 const firstNumber = 0;
+
 const KeyAndNumberComparison = (a, b) => a[1] - b[1];
 
 module.exports = class {
@@ -24,8 +24,6 @@ module.exports = class {
     }
 
     constructor ({path}) {
-
-        assert(typeof path === `string`);
         
         this._prefix = (path[path.length-1] === `/`)? path : path+`/`;
 
@@ -87,9 +85,7 @@ module.exports = class {
 
         for (i=0; i<count; i++) {
 
-            entries[i] = JsoFromJson(
-                localStorage.getItem(sortedKeysAndNumbers[i][0])
-                );
+            entries[i] = localStorage.getItem(sortedKeysAndNumbers[i][0]);
 
         }
 
@@ -115,12 +111,9 @@ module.exports = class {
 
     }
 
-    addJsonToWriteQueue (entryAsJson) {
+    addToWriteQueue (entry) {
 
-        localStorage.setItem(
-            this._prefix+String(this._nextNumber++), 
-            entryAsJson,
-            );
+        localStorage.setItem(this._prefix+String(this._nextNumber++), entry);
 
         this._sortedKeysAndNumbers = undefined;
 

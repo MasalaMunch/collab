@@ -2,11 +2,7 @@
 
 const fs = require(`fs`);
 
-const AssertionError = require(`./AssertionError.js`);
-const JsoFromJson = require(`./JsoFromJson.js`);
-
 const encoding = `utf8`;
-const separator = `\n`;
 
 module.exports = class {
 
@@ -21,13 +17,14 @@ module.exports = class {
 
     }
 
-    constructor ({path}) {
+    constructor ({path, separator}) {
 
         this._path = path;
 
-        this._appendStream = fs.createWriteStream(
-            this._path, {encoding, flags: `a`}
-            );
+        this._separator = separator;
+
+        this._appendStream = 
+            fs.createWriteStream(this._path, {encoding, flags: `a`});
 
     }
 
@@ -51,19 +48,9 @@ module.exports = class {
 
         }
 
-        const entriesAsJson = fileAsString.split(separator);
+        const entries = fileAsString.split(this._separator);
 
-        entriesAsJson.pop();
-
-        let i;
-        const entryCount = entriesAsJson.length;
-        const entries = entriesAsJson;
-
-        for (i=0; i<entryCount; i++) {
-
-            entries[i] = JsoFromJson(entriesAsJson[i]);
-
-        }
+        entries.pop();
 
         return entries;
 
@@ -75,12 +62,12 @@ module.exports = class {
 
     }
 
-    addJsonToWriteQueue (entryAsJson) {
+    addToWriteQueue (entry) {
 
         const s = this._appendStream;
 
-        s.write(entryAsJson);
-        s.write(separator);
+        s.write(entry);
+        s.write(this._separator);
 
     }
 

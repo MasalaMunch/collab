@@ -2,8 +2,8 @@
 
 const JoinedPaths = require(`path`).join;
 
-const {assert, AssertionError, Collab, EmptyJsoLog, StoredJsoLog, JsoAsJson, JsoFromJson,
-       CompressedChangesArray, doNothing, firstVersion, JsoFromString, JsoAsString, defaultValAsString, defaultVal} = require(`@masalamunch/collab-utils`);
+const {assert, AssertionError, Collab, EmptyLog, StoredStringLog, AsJson, 
+       FromJson, jsonSeparator, doNothing, firstVersion} = require(`@masalamunch/collab-utils`);
 
 const nonexistentServerId = require(`./nonexistentServerId.js`);
 const Queue = require(`./Queue.js`);
@@ -18,18 +18,20 @@ module.exports = class extends Collab {
 
         if (storagePath === undefined) {
 
-            this._serverOutputStorage = new StoredJsoLog({
+            this._serverOutputAsJsonStorage = new StoredStringLog({
                 path: JoinedPaths(storagePath, `s`),
+                separator: jsonSeparator,
                 });
-            this._intentEventStorage = new StoredJsoLog({
+            this._intentEventAsJsonStorage = new StoredStringLog({
                 path: JoinedPaths(storagePath, `i`),
+                separator: jsonSeparator,
                 });
 
         }
         else {
 
-            this._serverOutputStorage = new EmptyJsoLog();
-            this._intentEventStorage = new EmptyJsoLog();
+            this._serverOutputAsJsonStorage = new EmptyLog();
+            this._intentEventAsJsonStorage = new EmptyLog();
 
         }
 
@@ -44,8 +46,8 @@ module.exports = class extends Collab {
 
         this._isSyncing = false;
 
-        this._unsyncedChangeEvents = new Map();
-        //^ a {keyAsString -> changeEvent} map that represents the difference 
+        this._syncedStateMap = new Map();
+        //^ a {keyAsString -> val} map that represents the difference 
         //  between the synced state and the unsynced (current) state, it's used '
         //  to revert the client to the synced state before it applies changes 
         //  from the server
@@ -62,7 +64,7 @@ module.exports = class extends Collab {
     _loadServerOutputStorage () {
 
         let i;
-        const serverOutputStorage = this._serverOutputStorage;
+        const serverOutputStorage = this._serverOutputAsJsonStorage;
         const serverOutputArray = serverOutputStorage.Entries();
         const serverOutputCount = serverOutputArray.length;
         let serverOutput;
@@ -98,7 +100,7 @@ module.exports = class extends Collab {
 
             for (j=0; j<intentCount; j++) {
 
-                intentChanges = JsoFromJson(intentChangesAsJsonArray[j]);
+                intentChanges = FromJson(intentChangesAsJsonArray[j]);
 
                 if (intentChanges !== 0) { // i.e. not rejected by server
 
@@ -117,10 +119,10 @@ module.exports = class extends Collab {
             CompressedChangesArray(changesArray)
             );
 
-        this._normalizeAndWritePartialChangeEventsToState(partialChangeEvents);
+        this._fillPartialChangeEventsAndWriteThemToState(partialChangeEvents);
         
         serverOutputStorage.clear();
-        serverOutputStorage.addJsonToWriteQueue(JsoAsJson(
+        serverOutputStorage.addToWriteQueue(AsJson(
             [serverId, currentVersion, [], changes]
             ));
 
@@ -128,7 +130,7 @@ module.exports = class extends Collab {
 
     _loadIntentEventStorage () {
 
-        const intentEventStorage = this._intentEventStorage;
+        const intentEventStorage = this._intentEventAsJsonStorage;
         const intentEvents = intentEventStorage.Entries();
         const intentEventCount = intentEvents.length;
         let e;
@@ -164,18 +166,18 @@ module.exports = class extends Collab {
 
         for (i=0; i<intentCount; i++) {
 
-            this._writeIntentAndReturnItsInfo(intentQueue.OldestItem());
+            this._writeIntent(intentQueue.OldestItem());
             intentQueue.deleteOldestItem();
 
         }
 
     }
 
-    _writeIntentAndReturnItsInfo (intent) {
+    _writeIntent (intent) {
 
-        const info = super._writeIntentAndReturnItsInfo(intent);
+        const info = super._writeIntent(intent);
 
-        this._intentEventStorage.addJsonToWriteQueue(JsoAsJson([intent]));
+        this._intentEventAsJsonStorage.addToWriteQueue(AsJson([intent]));
 
         let i;
         const changeEvents = info.changeEvents;
@@ -183,25 +185,17 @@ module.exports = class extends Collab {
         let e;
         let keyAsString;
         let u;
-        const unsyncedChangeEvents = this._unsyncedChangeEvents;
+        const syncedStateMap = this._syncedStateMap;
 
         for (i=0; i<changeCount; i++) {
 
             e = changeEvents[i];
+
             keyAsString = e.keyAsString;
-            u = unsyncedChangeEvents.get(keyAsString);
 
-            if (u === undefined) {
+            if (!syncedStateMap.has(keyAsString)) {
 
-                u = {};
-                Object.assign(u, e);
-                unsyncedChangeEvents.set(keyAsString, u);
-
-            }
-            else {
-
-                u.val = e.val;
-                u.valAsString = e.valAsString;
+                syncedStateMap.set(keyAsString, e);
 
             }
 
@@ -223,7 +217,7 @@ module.exports = class extends Collab {
             throw new AssertionError();
         }
         this._isSyncing = true;
-        return JsoAsJson(
+        return AsJson(
             [this._serverId, this._currentVersion, this._unsyncedIntents]
             );
 
@@ -245,7 +239,7 @@ module.exports = class extends Collab {
         }
         this._isSyncing = false;
 
-        const serverOutput = JsoFromJson(serverOutputAsJson);
+        const serverOutput = FromJson(serverOutputAsJson);
         //^ contains [id, version, intentChangesAsJsonArray, newChanges, 
         //            inputWasRejected]
 
@@ -256,30 +250,22 @@ module.exports = class extends Collab {
         const intentChangesAsJsonArray = serverOutput[2];
         const intentCount = intentChangesAsJsonArray.length;
 
-        this._intentEventStorage.addJsonToWriteQueue(JsoAsJson(intentCount));
-        this._serverOutputStorage.addJsonToWriteQueue(serverOutputAsJson);
+        this._intentEventAsJsonStorage.addToWriteQueue(AsJson(intentCount));
+        this._serverOutputAsJsonStorage.addToWriteQueue(serverOutputAsJson);
 
         const id = serverOutput[0];
+        let changes = [];
+        let cCount = 0;
 
         if (this._serverId !== id && this._serverId !== nonexistentServerId) {
 
             this._handleServerChange();
 
-            const partialChangeEvents = [];
-            let changeCount = 0;
+            for (const keyAsString of this._keyAsStringVals.keys()) {
 
-            for (const keyAsString of this._stateMap.keys()) {
-
-                partialChangeEvents[changeCount] = {
-                    keyAsString,
-                    key: JsoFromString(keyAsString),
-                    valAsString: defaultValAsString,
-                    val: defaultVal,
-                    };
+                changes[cCount++] = [FromJsonWithSortedKeys(keyAsString), defaultVal];
 
             }
-
-            this._normalizeAndWritePartialChangeEventsToState(partialChangeEvents);
 
         }
         else {
@@ -287,26 +273,16 @@ module.exports = class extends Collab {
             let oldVal;
             let oldValAsString;
 
-            for (const e of this._unsyncedChangeEvents.values()) {
+            for (const keyAsString of this._syncedStateMap.keys()) {
+            //TODO finish switching to syncedStateMap
 
-                oldVal = e.oldVal;
-                oldValAsString = e.oldValAsString;
-
-                e.oldVal = e.val;
-                e.oldValAsString = e.valAsString;
-
-                e.val = oldVal;
-                e.valAsString = oldValAsString;
-
-                //^ reverse the change
-
-                this._writeChangeEventToState(e); 
+                changes[cCount++] = [e.key, e.oldVal];
 
             }
 
         }
 
-        this._unsyncedChangeEvents = new Map();
+        this._syncedStateMap = new Map();
 
         this._serverId = id;
         this._currentVersion = serverOutput[1];
@@ -315,12 +291,12 @@ module.exports = class extends Collab {
         let intentChanges;
         const intentChangesArray = intentChangesAsJsonArray;
         const unsyncedIntents = this._unsyncedIntents;
-        const changesArray = [serverOutput[3]];
-        let changesCount = 1;
+        const changesArray = [changes, serverOutput[3]];
+        let changesCount = 2;
 
         for (i=0; i<intentCount; i++) {
 
-            intentChanges = JsoFromJson(intentChangesAsJsonArray[i]);
+            intentChanges = FromJson(intentChangesAsJsonArray[i]);
             intentChangesArray[i] = intentChanges;
             if (intentChanges === 0) { // if intent was rejected
                 console.log(`an intent was rejected:`, unsyncedIntents[i]);
@@ -332,7 +308,6 @@ module.exports = class extends Collab {
         }
 
         let changes;
-        let cCount;
         let partialChangeEvents;
         let j;
         let c;
@@ -354,13 +329,13 @@ module.exports = class extends Collab {
                 partialChangeEvents[j] = {
                     key,
                     val,
-                    keyAsString: JsoAsString(key),
-                    valAsString: JsoAsString(val),
+                    keyAsString: AsJsonWithSortedKeys(key),
+                    valAsString: AsJsonWithSortedKeys(val),
                     };
 
             }
 
-            this._normalizeAndWritePartialChangeEventsToState(partialChangeEvents);
+            this._fillPartialChangeEventsAndWriteThemToState(partialChangeEvents);
 
         }
 
