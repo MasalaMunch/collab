@@ -1,6 +1,6 @@
 "use strict";
 
-module.exports = {
+module.exports = class {
 
     constructor () {
         this._firstNode = undefined;
@@ -46,4 +46,4 @@ module.exports = {
 
     }
 
-};
+    };
