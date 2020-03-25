@@ -405,10 +405,10 @@ module.exports = class extends Collab {
 
         }
 
-        const intentChangeEventsArray = intentStringChangesArray;
-        //^ stringChanges have been replaced with partialChangeEvents and filled
         const actionChangeEvents = this._actionChangeEvents;
         const unsyncedActions = this._unsyncedActions;
+        const intentChangeEventsArray = intentStringChangesArray;
+        //^ stringChanges have been replaced with partialChangeEvents and filled
 
         for (i=0; i<intentCount; i++) {
             actionChangeEvents.set(unsyncedActions[i], intentChangeEventsArray[i]);
