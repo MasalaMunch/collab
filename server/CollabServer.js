@@ -11,6 +11,8 @@ const {assert, MergedObjects, Collab, defaultValAsString,
 
 const NewServerId = require(`./NewServerId.js`);
 
+const firstVersion = 0;
+
 const VersionComparison = (a, b) => a - b;
 
 const defaultConfig = {
@@ -53,6 +55,8 @@ module.exports = class extends Collab {
         this._keyAsStringVersions = new Map();
         this._versionKeysAsStrings = new Map();
 
+        this._currentVersion = firstVersion;
+
         this._versionTree = new RbTree(VersionComparison);
         this._deletionVersionTree = new RbTree(VersionComparison);
 
@@ -82,7 +86,7 @@ module.exports = class extends Collab {
 
     }
 
-    *_VersionTreeStringChangesSince (tree, version) {
+    _VersionTreeStringChangesSince (tree, version) {
 
         const iterator = tree.upperBound(version);
 
@@ -96,7 +100,7 @@ module.exports = class extends Collab {
         const keyAsStringValsAsStrings = this._keyAsStringValsAsStrings;
         const stringChanges = [];
 
-        let version = iterator.data();
+        version = iterator.data();
 
         do {
 

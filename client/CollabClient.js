@@ -48,6 +48,8 @@ module.exports = class extends Collab {
 
         this._serverId = nonexistentServerId;
 
+        this._currentVersion = 0; // i.e. undefined
+
         this._isSyncing = false;
 
         this._unsyncedActions = [];
@@ -194,6 +196,7 @@ module.exports = class extends Collab {
                     throw error;
 
                 }
+
             }
 
         }

@@ -72,8 +72,6 @@ module.exports = class {
 
         this._actionChangeEvents = new Map();
 
-        this._currentVersion = firstVersion;
-
     }
 
     do (intent) {
@@ -122,15 +120,15 @@ module.exports = class {
             else {
 
                 const changeCount = changeEvents.length;
-                const changeEventsArray = [];
+                const changeEventsAsArray = [];
 
                 for (let i=0; i<changeCount; i++) {
 
-                    changeEventsArray.push(changeEvents[i]);
+                    changeEventsAsArray.push(changeEvents[i]);
 
                 }
 
-                this._actionChangeEvents.set(action, changeEventsArray);
+                this._actionChangeEvents.set(action, changeEventsAsArray);
 
             }
 

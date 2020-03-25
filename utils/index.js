@@ -11,7 +11,6 @@ module.exports = {
     defaultValAsString: require(`./defaultValAsString.js`),
     doNothing: require(`./doNothing.js`),
     EmptyLog: require(`./EmptyLog.js`),
-    firstVersion: require(`./firstVersion.js`),
     FromJson: require(`./FromJson.js`),
     FromString: require(`./FromString.js`),
     IsFromRejectBadInput: require(`./IsFromRejectBadInput.js`),

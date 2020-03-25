@@ -1,0 +1,14 @@
+{
+  "name": "@masalamunch/collab-server",
+  "version": "1.0.0",
+  "main": "index.js",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/MasalaMunch/collab.git"
+  },
+  "license": "ISC",
+  "dependencies": {
+    "@masalamunch/collab-utils": "^1.0.0",
+    "bintrees": "^1.0.2"
+  }
+}
