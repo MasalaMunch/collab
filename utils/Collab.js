@@ -111,7 +111,28 @@ module.exports = class {
         if (this._shouldRememberLocalActions) {
 
             this._actionIntents.set(action, intent);
-            this._actionChangeEvents.set(action, info.changeEvents);
+
+            const changeEvents = info.changeEvents;
+
+            if (Array.isArray(changeEvents)) {
+
+                this._actionChangeEvents.set(action, changeEvents);
+
+            }
+            else {
+
+                const changeCount = changeEvents.length;
+                const changeEventsArray = [];
+
+                for (let i=0; i<changeCount; i++) {
+
+                    changeEventsArray.push(changeEvents[i]);
+
+                }
+
+                this._actionChangeEvents.set(action, changeEventsArray);
+
+            }
 
         }
 
@@ -120,11 +141,11 @@ module.exports = class {
     }
 
 
-    IntentOfAction (action) {
+    IntentOf (action) {
         return this._actionIntents.get(action);
     }
 
-    ChangeEventsOfAction (action) {
+    ChangeEventsOf (action) {
         return this._actionChangeEvents.get(action);
     }
 
