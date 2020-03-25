@@ -15,6 +15,14 @@ const FromString = require(`./FromString.js`);
 const IsFromRejectBadInput = require(`./IsFromRejectBadInput.js`);
 const rejectBadInput = require(`./rejectBadInput.js`);
 
+const defaultConfig = {
+
+    handleChangeEvent: doNothing,
+
+    shouldRememberLocalActions: false,
+
+    };
+
 const defaultSchema = {
 
     IntentAsChanges: (intent, state, derivedState) => intent,
@@ -25,8 +33,11 @@ const defaultSchema = {
 
 module.exports = class {
 
-    constructor ({schema, handleChangeEvent=doNothing,
-                  shouldRememberLocalActions=false}) {
+    constructor (config) {
+
+        config = MergedObjects(defaultConfig, config);
+
+        let {schema, handleChangeEvent, shouldRememberLocalActions} = config;
 
         schema = MergedObjects(defaultSchema, schema);
 
@@ -55,7 +66,7 @@ module.exports = class {
 
         this.derivedState = {};
 
-        this._nextAction = Number.MIN_SAFE_INTEGER;
+        this._nextAction = 0;
 
         this._actionIntents = new Map();
 
@@ -81,9 +92,18 @@ module.exports = class {
 
         let info;
         try {
+
             info = this._writeIntent(intent, intentAsString);
+
         } catch (error) {
-            throw IsFromRejectBadInput(error)? error.reason || error;
+
+            if (IsFromRejectBadInput(error)) {
+                throw error.reason;
+            }
+            else {
+                throw error;
+            }
+
         }
 
         const action = info.action;
@@ -124,8 +144,7 @@ module.exports = class {
         let c;
         let keyAsString;
         let valAsString;
-        let key;
-        let val;
+        const partialChangeEvents = changes;
         
         for (i=0; i<changeCount; i++) {
 
@@ -144,32 +163,31 @@ module.exports = class {
             if (typeof valAsString !== `string`) {
                 rejectBadInput(new AssertionError());
             }
-            c.keyAsString = keyAsString;
-            c.valAsString = valAsString;
 
-            try {
-                c.key = FromString(keyAsString);
-                c.val = FromString(valAsString);
+            partialChangeEvents[i] = {
+
+                keyAsString,
+                valAsString,
+
+                key: FromString(keyAsString),
+                val: FromString(valAsString),
                 //^ ensures that both the doer of the intent and others who 
-                //  receive the intent's changes will process the same key  and 
+                //  receive the intent's changes will process the same key and 
                 //  val in their _writeChangeEventToState functions - in  a 
                 //  perfect world this wouldn't be necessary, but it's here 
                 //  because it makes it impossible to introduce certain 
                 //  tricky-to-debug bugs
-            } catch (error) {
-                rejectBadInput(error);
-            }
+
+                };
 
         }
 
-        this._fillPartialChangeEventsAndWriteThemToState(changes);
-        //^ changes are now partialChangeEvents because of the modifications 
-        //  made to them in the for loop
+        this._fillPartialChangeEventsAndWriteThemToState(partialChangeEvents);
 
         return {
-            changeEvents: changes, 
-            //^ changes are now changeEvents because they've been filled by 
-            //  this._fillPartialChangeEventsAndWriteThemToState
+            changeEvents: partialChangeEvents, 
+            //^ partialChangeEvents are now changeEvents because they've been 
+            //  filled by this._fillPartialChangeEventsAndWriteThemToState
             action: this._nextAction++,
             };
 
@@ -217,7 +235,7 @@ module.exports = class {
         const keyAsString = changeEvent.keyAsString;
         const valAsString = changeEvent.valAsString;
 
-        if (valAsString === this._defaultValAsString) {
+        if (valAsString === defaultValAsString) {
 
             this._keyAsStringVals.delete(keyAsString);
             this._keyAsStringValsAsStrings.delete(keyAsString);

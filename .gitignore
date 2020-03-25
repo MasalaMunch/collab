@@ -1,0 +1,6 @@
+.*
+!.gitignore
+client/node_modules
+demo/node_modules
+server/node_modules
+utils/node_modules

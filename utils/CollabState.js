@@ -12,8 +12,9 @@ module.exports = class {
         this._keyAsStringVals = keyAsStringVals;
         this._keyAsStringValsAsStrings = keyAsStringValsAsStrings;
 
-        this.AsString = AsString;
-        this.FromString = FromString;
+        Object.assign(
+            this, {AsString, FromString, defaultVal, defaultValAsString}
+            );
 
     }
 

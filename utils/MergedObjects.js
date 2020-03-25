@@ -2,6 +2,6 @@
 
 module.exports = (...objects) => {
    
-    return Object.fromEntries(objects.map(Object.entries).flat());
+    return Object.fromEntries(objects.filter(Boolean).map(Object.entries).flat());
 
 };

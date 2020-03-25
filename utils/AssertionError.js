@@ -4,7 +4,7 @@ module.exports = class extends Error {
 
     constructor () {
 
-        super(`an assertion failed`);
+        super(`An assertion failed`);
 
     }
 

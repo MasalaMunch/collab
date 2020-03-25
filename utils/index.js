@@ -7,7 +7,6 @@ module.exports = {
     AsString: require(`./AsString.js`),
     ClassFactory: require(`./ClassFactory.js`),
     Collab: require(`./Collab.js`),
-    CompressedChangesArray: require(`./CompressedChangesArray.js`),
     defaultVal: require(`./defaultVal.js`),
     defaultValAsString: require(`./defaultValAsString.js`),
     doNothing: require(`./doNothing.js`),
