@@ -3,10 +3,8 @@
 const JoinedPaths = require(`path`).join;
 
 const {AsJson, assert, AssertionError, Collab, EmptyLog, StoredStringLog, 
-       jsonSeparator, MergedObjects, defaultValAsString, doNothing, firstVersion, 
+       jsonSeparator, MergedObjects, nonexistentServerId, defaultValAsString, doNothing, firstVersion, 
        FromJson, FromString, IsFromRejectBadInput} = require(`@masalamunch/collab-utils`);
-
-const nonexistentServerId = require(`./nonexistentServerId.js`);
 
 const defaultConfig = {
 
@@ -281,7 +279,7 @@ module.exports = class extends Collab {
             FromJson(serverOutputAsJson);
 
         if (newStringChanges === 0 && intentStringChangesAsJsonArray === 0
-        && id === this._serverId) {
+        && id === nonexistentServerId) {
 
             return;
             //^ speeds up the common case and makes serverOutputAsJsonStorage
@@ -309,7 +307,7 @@ module.exports = class extends Collab {
 
         let rewindStringChanges;
 
-        if (this._serverId === id) {
+        if (id === nonexistentServerId) {
 
             let c;
             const keyAsStringSyncedValsAsStrings = 

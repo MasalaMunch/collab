@@ -4,7 +4,7 @@ const JoinedPaths = require(`path`).join;
 
 const RbTree = require(`bintrees`).RBTree;
 
-const {assert, MergedObjects, Collab, defaultValAsString, 
+const {assert, MergedObjects, nonexistentServerId, Collab, defaultValAsString, 
        rejectBadInput, AsJson, FromJson, FromString, EmptyLog, 
        StoredStringLog, AssertionError, firstVersion, jsonSeparator, 
        IsFromRejectBadInput} = require(`@masalamunch/collab-utils`);
@@ -149,7 +149,7 @@ module.exports = class extends Collab {
 
     sync (clientInputAsJson) {
 
-        const id = this._id;
+        let id = nonexistentServerId;
         let newStringChanges = 0; // i.e. undefined
         let intentStringChangesAsJsonArray = 0; // i.e. undefined
         let inputWasSuccessfullyParsed = 1; // i.e. true
@@ -170,7 +170,7 @@ module.exports = class extends Collab {
 
             let version;
 
-            if (clientInput[0] === id) {
+            if (clientInput[0] === this._id) {
 
                 version = clientInput[1];
 
@@ -180,6 +180,8 @@ module.exports = class extends Collab {
 
             }
             else {
+
+                id = this._id;
 
                 version = firstVersion;
 

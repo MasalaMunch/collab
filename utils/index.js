@@ -16,6 +16,7 @@ module.exports = {
     IsFromRejectBadInput: require(`./IsFromRejectBadInput.js`),
     jsonSeparator: require(`./jsonSeparator.js`),
     MergedObjects: require(`./MergedObjects.js`),
+    nonexistentServerId: require(`./nonexistentServerId.js`),
     rejectBadInput: require(`./rejectBadInput.js`), 
     StoredStringLog: require(`./StoredStringLog.js`),
     };
