@@ -1,14 +1,17 @@
 "use strict";
 
 const AsJson = require(`./AsJson.js`);
-const AsJsonWithSortedKeys = require(`./AsJsonWithSortedKeys.js`);
 const assert = require(`./assert.js`);
 const AssertionError = require(`./AssertionError.js`);
-const assignIfUndefined = require(`./assignIfUndefined.js`);
+const AsString = require(`./AsString.js`);
+const MergedObjects = require(`./MergedObjects.js`);
 const CollabState = require(`./CollabState.js`);
+const defaultVal = require(`./defaultVal.js`);
+const defaultValAsString = require(`./defaultValAsString.js`);
 const doNothing = require(`./doNothing.js`);
 const firstVersion = require(`./firstVersion.js`);
 const FromJson = require(`./FromJson.js`);
+const FromString = require(`./FromString.js`);
 const IsFromRejectBadInput = require(`./IsFromRejectBadInput.js`);
 const rejectBadInput = require(`./rejectBadInput.js`);
 
@@ -18,17 +21,6 @@ const defaultSchema = {
 
     updateDerivedState: doNothing,
 
-    KeyAsString: AsJsonWithSortedKeys,
-    KeyFromString: FromJson,
-
-    ValAsString: AsJsonWithSortedKeys,
-    ValFromString: FromJson,
-
-    defaultVal: null,
-
-    IntentAsString: AsJsonWithSortedKeys,
-    IntentFromString: FromJson,
-
     };
 
 module.exports = class {
@@ -36,41 +28,15 @@ module.exports = class {
     constructor ({schema, handleChangeEvent=doNothing,
                   shouldRememberLocalActions=false}) {
 
-        const fullSchema = {};
+        schema = MergedObjects(defaultSchema, schema);
 
-        Object.assign(fullSchema, schema);
-
-        assignIfUndefined(fullSchema, defaultSchema);
-
-        const {IntentAsChanges, updateDerivedState, KeyAsString, KeyFromString, 
-               ValAsString, ValFromString, defaultVal, IntentAsString, 
-               IntentFromString} = fullSchema;
+        const {IntentAsChanges, updateDerivedState} = schema;
 
         assert(typeof IntentAsChanges === `function`);
         this._IntentAsChanges = IntentAsChanges;
 
         assert(typeof updateDerivedState === `function`);
         this._updateDerivedState = updateDerivedState;
-
-        assert(typeof KeyAsString === `function`);
-        this._KeyAsString = KeyAsString;
-
-        assert(typeof KeyFromString === `function`);
-        this._KeyFromString = KeyFromString;
-
-        assert(typeof ValAsString === `function`);
-        this._ValAsString = ValAsString;
-
-        assert(typeof ValFromString === `function`);
-        this._ValFromString = ValFromString;
-
-        this._defaultVal = defaultVal;
-
-        assert(typeof IntentAsString === `function`);
-        this._IntentAsString = IntentAsString;
-
-        assert(typeof IntentFromString === `function`);
-        this._IntentFromString = IntentFromString;
 
         assert(typeof handleChangeEvent === `function`);
         this._handleChangeEvent = handleChangeEvent;
@@ -79,18 +45,12 @@ module.exports = class {
         this._shouldRememberLocalActions = shouldRememberLocalActions;
         //^ remembering local actions is useful for implementing undo-redo
 
-        const defaultValAsString = this.ValAsString(this.defaultVal);
-        assert(typeof defaultValAsString === `string`);
-        this._defaultValAsString = defaultValAsString;
-
         this._keyAsStringVals = new Map();
 
-        this._keyAsStringValAsStrings = new Map();
+        this._keyAsStringValsAsStrings = new Map();
 
         this.state = new CollabState(
-            this._keyAsStringVals, this._keyAsStringValAsStrings, 
-            this._KeyAsString, this._KeyFromString, this._ValAsString, 
-            this._ValFromString, this._defaultVal, this._defaultValAsString
+            this._keyAsStringVals, this._keyAsStringValsAsStrings
             );
 
         this.derivedState = {};
@@ -107,12 +67,12 @@ module.exports = class {
 
     do (intent) {
 
-        const intentAsString = this._IntentAsString(intent);
+        const intentAsString = AsString(intent);
         if (typeof intentAsString !== `string`) {
             throw new AssertionError();
         }
 
-        intent = this._IntentFromString(intentAsString);
+        intent = FromString(intentAsString);
         //^ ensures that both the doer of the intent and others who receive 
         //  the intent as a string will process the same thing in their 
         //  IntentAsChanges functions - in a perfect world this wouldn't be 
@@ -153,21 +113,16 @@ module.exports = class {
         let changes;
         let changeCount;
         try {
-            changes = (
-                this._IntentAsChanges(intent, this._state, this._derivedState)
+            changes = this._IntentAsChanges(
+                intent, this._state, this._derivedState
                 );
             changeCount = changes.length;
         } catch (error) {
             rejectBadInput(error);
         }
-        if (typeof changeCount !== `number` || changeCount === Infinity) {
-            throw new AssertionError();
-        }
         let i;
         let c;
-        const KeyAsString = this._KeyAsString;
         let keyAsString;
-        const ValAsString = this._ValAsString;        
         let valAsString;
         let key;
         let val;
@@ -177,8 +132,8 @@ module.exports = class {
             c = changes[i];
 
             try {
-                keyAsString = KeyAsString(c.key);
-                valAsString = ValAsString(c.val);
+                keyAsString = AsString(c.key);
+                valAsString = AsString(c.val);
             }
             catch (error) {
                 rejectBadInput(error);
@@ -193,8 +148,8 @@ module.exports = class {
             c.valAsString = valAsString;
 
             try {
-                c.key = KeyFromString(keyAsString);
-                c.val = ValFromString(valAsString);
+                c.key = FromString(keyAsString);
+                c.val = FromString(valAsString);
                 //^ ensures that both the doer of the intent and others who 
                 //  receive the intent's changes will process the same key  and 
                 //  val in their _writeChangeEventToState functions - in  a 
@@ -227,10 +182,8 @@ module.exports = class {
         let e;
         let keyAsString;
         let storedVal;
-        const defaultVal = this._defaultVal;
-        const defaultValAsString = this._defaultValAsString;
         const keyAsStringVals = this._keyAsStringVals;
-        const keyAsStringValAsStrings = this._keyAsStringValAsStrings;
+        const keyAsStringValsAsStrings = this._keyAsStringValsAsStrings;
 
         for (i=0; i<changeCount; i++) {
 
@@ -249,7 +202,7 @@ module.exports = class {
             else {
 
                 e.oldVal = storedVal;
-                e.oldValAsString = keyAsStringValAsStrings.get(keyAsString);
+                e.oldValAsString = keyAsStringValsAsStrings.get(keyAsString);
 
             }
 
@@ -267,13 +220,13 @@ module.exports = class {
         if (valAsString === this._defaultValAsString) {
 
             this._keyAsStringVals.delete(keyAsString);
-            this._keyAsStringValAsStrings.delete(keyAsString);
+            this._keyAsStringValsAsStrings.delete(keyAsString);
 
         }
         else {
 
             this._keyAsStringVals.set(keyAsString, changeEvent.val);
-            this._keyAsStringValAsStrings.set(keyAsString, valAsString);
+            this._keyAsStringValsAsStrings.set(keyAsString, valAsString);
 
         }
 
@@ -294,10 +247,8 @@ module.exports = class {
         let keyAsString;
         const overwrittenKeysAsStrings = new Set();
         let valAsString;
-        const defaultValAsString = this._defaultValAsString;
         const allStringChanges = [];
         const allPartialChangeEvents = [];
-        let totalChangeCount = 0;
 
         for (i=stringChangesArray.length-1; i>=0; i--) {
 
@@ -317,19 +268,17 @@ module.exports = class {
 
                     if (valAsString !== defaultValAsString) {
 
-                        allStringChanges[totalChangeCount] = c;
+                        allStringChanges.push(c);
 
-                        allPartialChangeEvents[totalChangeCount] = {
+                        allPartialChangeEvents.push({
 
                             keyAsString, 
                             valAsString, 
 
-                            key: KeyFromString(keyAsString),
-                            val: ValFromString(valAsString),
+                            key: FromString(keyAsString),
+                            val: FromString(valAsString),
 
-                            };
-
-                        totalChangeCount++;
+                            });
 
                     }
 

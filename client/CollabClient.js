@@ -2,15 +2,23 @@
 
 const JoinedPaths = require(`path`).join;
 
-const {assert, AssertionError, Collab, EmptyLog, StoredStringLog, AsJson, 
-       FromJson, jsonSeparator, doNothing, firstVersion} = require(`@masalamunch/collab-utils`);
+const {AsJson, assert, AssertionError, Collab, EmptyLog, StoredStringLog, 
+       jsonSeparator, MergedObjects, defaultValAsString, doNothing, firstVersion, 
+       FromJson, FromString, IsFromRejectBadInput} = require(`@masalamunch/collab-utils`);
 
 const nonexistentServerId = require(`./nonexistentServerId.js`);
-const Queue = require(`./Queue.js`);
+
+const defaultConfig = {
+
+    handleServerChange: doNothing,
+
+    };
 
 module.exports = class extends Collab {
 
     constructor (config) {
+
+        config = MergedObjects(defaultConfig, config);
 
         super(config);
 
@@ -35,10 +43,6 @@ module.exports = class extends Collab {
 
         }
 
-        if (handleServerChange === undefined) {
-            handleServerChange = doNothing;
-        }
-
         assert(typeof handleServerChange === `function`);
         this._handleServerChange = handleServerChange;
 
@@ -46,65 +50,79 @@ module.exports = class extends Collab {
 
         this._isSyncing = false;
 
-        this._syncedStateMap = new Map();
-        //^ a {keyAsString -> val} map that represents the difference 
-        //  between the synced state and the unsynced (current) state, it's used '
-        //  to revert the client to the synced state before it applies changes 
-        //  from the server
         this._unsyncedActions = [];
         //^ used to fix the action history after these actions are synced with 
-        //  the server (their changeEvents might have changed!)
-        this._unsyncedIntents = [];
+        //  the server (their changeEvents might have changed)
+        this._keyAsStringSyncedValsAsStrings = new Map();        
+        //^  represent the difference between the synced state and the unsynced 
+        //   (current) state, used to rewind the client to the synced state 
+        //   before it applies changes from the server
+        this._unsyncedIntentsAsStrings = [];
 
         this._loadServerOutputStorage();
         this._loadIntentEventStorage();
 
     }
 
+    IsSyncing () {
+
+        return this._isSyncing;
+
+    }
+
+    IsSynced () {
+
+        return (this._unsyncedIntentsAsStrings.length === 0);
+
+    }
+
     _loadServerOutputStorage () {
 
         let i;
-        const serverOutputStorage = this._serverOutputAsJsonStorage;
-        const serverOutputArray = serverOutputStorage.Entries();
-        const serverOutputCount = serverOutputArray.length;
+        const serverOutputAsJsonStorage = this._serverOutputAsJsonStorage;
+        const serverOutputAsJsonArray = serverOutputAsJsonStorage.Entries();
+        const serverOutputCount = serverOutputAsJsonArray.length;
         let serverOutput;
         let serverId = this._serverId;
         let currentVersion = this._currentVersion;
-        let changesArray = [];
-        let changesCount = 0;
-        let intentChangesAsJsonArray;
+        let stringChangesArray = [];
+        let intentStringChangesAsJsonArray;
         let intentCount;
         let j;
-        let intentChanges;
+        let intentStringChanges;
 
         for (i=0; i<serverOutputCount; i++) {
 
-            serverOutput = serverOutputArray[i];
-            //^ contains [serverId, version, intentChangesAsJsonArray, newChanges]
+            serverOutput = FromJson(serverOutputAsJsonArray[i]);
+            //^ contains [serverId, version, intentStringChangesAsJsonArray, 
+            //            newStringChanges]
+
+            currentVersion = serverOutput[1];
 
             if (serverId !== serverOutput[0]) {
 
                 serverId = serverOutput[0];
 
-                changesArray = [];
-                changesCount = 0;
+                stringChangesArray = [];
 
             }
 
-            currentVersion = serverOutput[1];
+            if (serverOutput[3] !== 0) { // if not undefined
 
-            changesArray[changesCount++] = serverOutput[3];
+                stringChangesArray.push(serverOutput[3]);
 
-            intentChangesAsJsonArray = serverOutput[2];
-            intentCount = intentChangesAsJsonArray.length;
+            }
+
+            intentStringChangesAsJsonArray = serverOutput[2];
+            intentCount = intentStringChangesAsJsonArray.length;
 
             for (j=0; j<intentCount; j++) {
 
-                intentChanges = FromJson(intentChangesAsJsonArray[j]);
+                intentStringChanges = FromJson(intentStringChangesAsJsonArray[j]);
 
-                if (intentChanges !== 0) { // i.e. not rejected by server
+                if (intentStringChanges !== 0) { // if not undefined
 
-                    changesArray[changesCount++] = intentChanges;
+                    stringChangesArray.push(intentStringChanges);
 
                 }
 
@@ -112,80 +130,88 @@ module.exports = class extends Collab {
 
         }
 
-        this._serverId = serverId;
         this._currentVersion = currentVersion;
+        this._serverId = serverId;
 
-        const {partialChangeEvents, changes} = (
-            CompressedChangesArray(changesArray)
-            );
+        const {partialChangeEvents, stringChanges} = 
+            this._CompressedStringChangesArray(stringChangesArray);
 
         this._fillPartialChangeEventsAndWriteThemToState(partialChangeEvents);
         
-        serverOutputStorage.clear();
-        serverOutputStorage.addToWriteQueue(AsJson(
-            [serverId, currentVersion, [], changes]
+        serverOutputAsJsonStorage.clear();
+        serverOutputAsJsonStorage.addToWriteQueue(AsJson(
+            [serverId, currentVersion, 0, stringChanges]
             ));
 
     }
 
     _loadIntentEventStorage () {
 
-        const intentEventStorage = this._intentEventAsJsonStorage;
-        const intentEvents = intentEventStorage.Entries();
-        const intentEventCount = intentEvents.length;
+        let i;
+        const intentEventAsJsonStorage = this._intentEventAsJsonStorage;
+        const intentEventsAsJson = intentEventAsJsonStorage.Entries();
+        const intentEventCount = intentEventsAsJson.length;
         let e;
-        const intentQueue = new Queue();
-        intentCount = 0;
+        const intentsAsStrings = new Array(intentEventCount);
+        let addedIntentCount = 0;
+        let removedIntentCount = 0;
 
         for (i=0; i<intentEventCount; i++) {
 
-            e = intentEvents[i];
+            e = FromJson(intentEventsAsJson[i]);
 
             if (typeof e === `number`) {
 
-                for (j=0; j<e; j++) {
-
-                    intentQueue.deleteOldestItem();
-
-                }
-
-                intentCount -= e;
+                removedIntentCount += e;
 
             }
-            else { // e contains [intent]
+            else { // e contains [intentAsString]
 
-                intentQueue.add(e[0]);
-
-                intentCount++;
+                intentsAsStrings[addedIntentCount++] = e[0];
 
             }
 
         }
 
-        intentEventStorage.clear();
+        let s;
+        let intent;
 
-        for (i=0; i<intentCount; i++) {
+        intentEventAsJsonStorage.clear();
 
-            this._writeIntent(intentQueue.OldestItem());
-            intentQueue.deleteOldestItem();
+        for (i=removedIntentCount; i<addedIntentCount; i++) {
+
+            s = intentsAsStrings[i];
+            intent = FromString(s);
+
+            try {
+
+                this._writeIntent(intent, s);
+
+            } catch (error) {
+
+                if (!IsFromRejectBadInput(error)) {
+
+                    throw error;
+
+                }
+            }
 
         }
 
     }
 
-    _writeIntent (intent) {
+    _writeIntent (intent, intentAsString) {
 
-        const info = super._writeIntent(intent);
+        const info = super._writeIntent(intent, intentAsString);
 
-        this._intentEventAsJsonStorage.addToWriteQueue(AsJson([intent]));
+        this._intentEventAsJsonStorage.addToWriteQueue(AsJson([intentAsString]));
 
         let i;
         const changeEvents = info.changeEvents;
         const changeCount = changeEvents.length;
         let e;
         let keyAsString;
-        let u;
-        const syncedStateMap = this._syncedStateMap;
+        const keyAsStringSyncedValsAsStrings = this._keyAsStringSyncedValsAsStrings;        
 
         for (i=0; i<changeCount; i++) {
 
@@ -193,19 +219,16 @@ module.exports = class extends Collab {
 
             keyAsString = e.keyAsString;
 
-            if (!syncedStateMap.has(keyAsString)) {
+            if (!keyAsStringSyncedValsAsStrings.has(keyAsString)) {
 
-                syncedStateMap.set(keyAsString, e);
+                keyAsStringSyncedValsAsStrings.set(keyAsString, e.oldValAsString);                
 
             }
 
         }
 
-        const unsyncedActions = this._unsyncedActions;
-        const unsyncedActionCount = unsyncedActions.length;
-
-        unsyncedActions[unsyncedActionCount] = info.action;
-        this._unsyncedIntents[unsyncedActionCount] = intent;
+        this._unsyncedActions.push(info.action);
+        this._unsyncedIntentsAsStrings.push(intentAsString);
 
         return info;
 
@@ -216,9 +239,19 @@ module.exports = class extends Collab {
         if (this._isSyncing) {
             throw new AssertionError();
         }
+
         this._isSyncing = true;
+
+        let intentsAsStrings = this._unsyncedIntentsAsStrings;
+
+        if (intentsAsStrings.length === 0) {
+
+            intentsAsStrings = 0; // i.e. undefined
+
+        }
+
         return AsJson(
-            [this._serverId, this._currentVersion, this._unsyncedIntents]
+            [this._serverId, this._currentVersion, intentsAsStrings]
             );
 
     }
@@ -228,6 +261,7 @@ module.exports = class extends Collab {
         if (!this._isSyncing) {
             throw new AssertionError();
         }
+
         this._isSyncing = false;
 
     }
@@ -237,111 +271,142 @@ module.exports = class extends Collab {
         if (!this._isSyncing) {
             throw new AssertionError();
         }
+
         this._isSyncing = false;
 
-        const serverOutput = FromJson(serverOutputAsJson);
-        //^ contains [id, version, intentChangesAsJsonArray, newChanges, 
-        //            inputWasRejected]
+        const [id, version, intentStringChangesAsJsonArray, newStringChanges] = 
+            FromJson(serverOutputAsJson);
 
-        if (serverOutput[4] === 1) { // if input was rejected
-            throw new AssertionError();
+        if (newStringChanges === 0 && intentStringChangesAsJsonArray === 0
+        && id === this._serverId) {
+
+            return;
+            //^ speeds up the common case and makes serverOutputAsJsonStorage
+            //  more compact    
+
         }
 
-        const intentChangesAsJsonArray = serverOutput[2];
-        const intentCount = intentChangesAsJsonArray.length;
-
-        this._intentEventAsJsonStorage.addToWriteQueue(AsJson(intentCount));
         this._serverOutputAsJsonStorage.addToWriteQueue(serverOutputAsJson);
 
-        const id = serverOutput[0];
-        let changes = [];
-        let cCount = 0;
+        let intentCount = intentStringChangesAsJsonArray.length;
 
-        if (this._serverId !== id && this._serverId !== nonexistentServerId) {
+        if (intentCount === undefined) {
 
-            this._handleServerChange();
+            intentCount = 0;
 
-            for (const keyAsString of this._keyAsStringVals.keys()) {
+        }
+        else {
 
-                changes[cCount++] = [FromJsonWithSortedKeys(keyAsString), defaultVal];
+            this._intentEventAsJsonStorage.addToWriteQueue(AsJson(intentCount));
+            //^ tell storage how many intents were sucessfully sent to server
+
+        }
+
+        this._currentVersion = version;
+
+        let rewindStringChanges;
+
+        if (this._serverId === id) {
+
+            let c;
+            const keyAsStringSyncedValsAsStrings = 
+                this._keyAsStringSyncedValsAsStrings;
+            rewindStringChanges = 
+                new Array(keyAsStringSyncedValsAsStrings.size);
+            let i = 0;
+
+            for (c of keyAsStringSyncedValsAsStrings) {
+
+                rewindStringChanges[i++] = c;
 
             }
 
         }
         else {
 
-            let oldVal;
-            let oldValAsString;
+            if (this._serverId !== nonexistentServerId) {
 
-            for (const keyAsString of this._syncedStateMap.keys()) {
-            //TODO finish switching to syncedStateMap
+                this._handleServerChange();
 
-                changes[cCount++] = [e.key, e.oldVal];
+            }
+
+            this._serverId = id;
+
+            let keyAsString;
+            const keyAsStringVals = this._keyAsStringVals;
+            rewindStringChanges = new Array(keyAsStringVals.size);
+            let i = 0;
+
+            for (keyAsString of keyAsStringVals.keys()) {
+
+                rewindStringChanges[i++] = [keyAsString, defaultValAsString];
 
             }
 
         }
 
-        this._syncedStateMap = new Map();
-
-        this._serverId = id;
-        this._currentVersion = serverOutput[1];
+        this._keyAsStringSyncedValsAsStrings = new Map();
 
         let i;
-        let intentChanges;
-        const intentChangesArray = intentChangesAsJsonArray;
-        const unsyncedIntents = this._unsyncedIntents;
-        const changesArray = [changes, serverOutput[3]];
-        let changesCount = 2;
+        let intentStringChanges;
+        const intentStringChangesArray = intentStringChangesAsJsonArray;
+        const changesCount = 2 + intentCount;
+        const stringChangesArray = new Array(changesCount);
+        stringChangesArray[0] = rewindStringChanges;
+        stringChangesArray[1] = newStringChanges;
 
         for (i=0; i<intentCount; i++) {
 
-            intentChanges = FromJson(intentChangesAsJsonArray[i]);
-            intentChangesArray[i] = intentChanges;
-            if (intentChanges === 0) { // if intent was rejected
-                console.log(`an intent was rejected:`, unsyncedIntents[i]);
-            }
-            else {
-                changesArray[changesCount++] = intentChanges;
-            }
+            intentStringChanges = FromJson(intentStringChangesAsJsonArray[i]);
+            intentStringChangesArray[i] = intentStringChanges;
+            stringChangesArray[2 + i] = intentStringChanges;
 
         }
 
-        let changes;
+        let stringChanges;
+        let cCount;
         let partialChangeEvents;
         let j;
         let c;
-        let key;
-        let val;
+        let keyAsString;
+        let valAsString;
 
         for (i=0; i<changesCount; i++) {
 
-            changes = changesArray[i];
-            cCount = changes.length;
-            partialChangeEvents = changes;
+            stringChanges = stringChangesArray[i];
 
-            for (j=0; j<cCount; j++) {
+            if (stringChanges !== 0) { // if not undefined
 
-                c = changes[j];
-                key = c[0];
-                val = c[1];
+                cCount = stringChanges.length;
+                partialChangeEvents = stringChanges;
 
-                partialChangeEvents[j] = {
-                    key,
-                    val,
-                    keyAsString: AsJsonWithSortedKeys(key),
-                    valAsString: AsJsonWithSortedKeys(val),
-                    };
+                for (j=0; j<cCount; j++) {
+
+                    c = stringChanges[j];
+
+                    keyAsString = c[0];
+                    valAsString = c[1];
+
+                    partialChangeEvents[j] = {
+
+                        keyAsString,
+                        valAsString,
+
+                        key: FromString(keyAsString),
+                        val: FromString(valAsString),
+
+                        };
+
+                }
+
+                this._fillPartialChangeEventsAndWriteThemToState(partialChangeEvents);
 
             }
 
-            this._fillPartialChangeEventsAndWriteThemToState(partialChangeEvents);
-
         }
 
-        const intentChangeEventsArray = intentChangesArray;
-        //^ changes have been replaced with partialChangeEvents and normalized
-
+        const intentChangeEventsArray = intentStringChangesArray;
+        //^ stringChanges have been replaced with partialChangeEvents and filled
         const actionChangeEvents = this._actionChangeEvents;
         const unsyncedActions = this._unsyncedActions;
 
@@ -350,7 +415,7 @@ module.exports = class extends Collab {
         }
 
         this._unsyncedActions = unsyncedActions.slice(intentCount);
-        this._unsyncedIntents = unsyncedIntents.slice(intentCount);
+        this._unsyncedIntentsAsStrings = unsyncedIntentsAsStrings.slice(intentCount);
 
     }
 

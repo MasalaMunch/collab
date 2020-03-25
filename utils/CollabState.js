@@ -1,20 +1,19 @@
 "use strict";
 
+const AsString = require(`./AsString.js`);
+const defaultVal = require(`./defaultVal.js`);
+const defaultValAsString = require(`./defaultValAsString.js`);
+const FromString = require(`./FromString.js`);
+
 module.exports = class {
 
-    constructor (keyAsStringVals, keyAsStringValAsStrings, KeyAsString, 
-                 KeyFromString, ValAsString, ValFromString, defaultVal, 
-                 defaultValAsString) {
+    constructor (keyAsStringVals, keyAsStringValsAsStrings) {
 
         this._keyAsStringVals = keyAsStringVals;
-        this._keyAsStringValAsStrings = keyAsStringValAsStrings;
+        this._keyAsStringValsAsStrings = keyAsStringValsAsStrings;
 
-        this.KeyAsString = KeyAsString;
-        this.KeyFromString = KeyFromString;
-        this.ValAsString = ValAsString;
-        this.ValFromString = ValFromString;
-        this.defaultVal = defaultVal;
-        this.defaultValAsString = defaultValAsString;
+        this.AsString = AsString;
+        this.FromString = FromString;
 
     }
 
@@ -32,11 +31,9 @@ module.exports = class {
 
     *Keys () {
 
-        const KeyFromString = this.KeyFromString;
-
         for (const keyAsString of this._keyAsStringVals.keys()) {
 
-            yield KeyFromString(keyAsString);
+            yield FromString(keyAsString);
 
         }
         
@@ -49,7 +46,7 @@ module.exports = class {
 
     Has (key) {
 
-        return this._keyAsStringVals.has(this.KeyAsString(key));
+        return this._keyAsStringVals.has(AsString(key));
 
     }
 
@@ -57,35 +54,35 @@ module.exports = class {
 
         const storedVal = this._keyAsStringVals.get(keyAsString);
 
-        return (storedVal === undefined)? this.defaultVal : storedVal;   
+        return (storedVal === undefined)? defaultVal : storedVal;   
 
     }
 
     ValOf (key) {
 
-        const storedVal = this._keyAsStringVals.get(this.KeyAsString(key));
+        const storedVal = this._keyAsStringVals.get(AsString(key));
 
-        return (storedVal === undefined)? this.defaultVal : storedVal;
+        return (storedVal === undefined)? defaultVal : storedVal;
 
     }
 
     ValAsStringOfKeyAsString (keyAsString) {
 
         const storedValAsString = 
-            this._keyAsStringValAsStrings.get(keyAsString);
+            this._keyAsStringValsAsStrings.get(keyAsString);
 
         return (storedValAsString === undefined)? 
-            this.defaultValAsString : storedValAsString;   
+            defaultValAsString : storedValAsString;   
 
     }
 
     ValAsStringOf (key) {
 
         const storedValAsString = 
-            this._keyAsStringValAsStrings.get(this.KeyAsString(key));
+            this._keyAsStringValsAsStrings.get(AsString(key));
 
         return (storedValAsString === undefined)? 
-            this.defaultValAsString : storedValAsString;
+            defaultValAsString : storedValAsString;
 
     }
 

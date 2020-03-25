@@ -49,7 +49,6 @@ module.exports = class {
             let key;
             const prefixRegExp = PrefixRegExp(this._prefix);
             const keysAndNumbers = [];
-            let count = 0;
             const prefixLength = this._prefix.length;
 
             for (i=0; i<localStorageLength; i++) {
@@ -58,10 +57,9 @@ module.exports = class {
 
                 if (prefixRegExp.test(key)) {
 
-                    keysAndNumbers[count++] = [
-                        key, 
-                        Number(key.substring(prefixLength, key.length)),
-                        ];
+                    keysAndNumbers.push(
+                        [key, Number(key.substring(prefixLength, key.length))]
+                        );
 
                 }
 
@@ -81,7 +79,7 @@ module.exports = class {
         let i;
         const sortedKeysAndNumbers = this._SortedKeysAndNumbers();
         const count = sortedKeysAndNumbers.length;
-        const entries = [];
+        const entries = new Array(count);
 
         for (i=0; i<count; i++) {
 

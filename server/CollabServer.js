@@ -4,9 +4,10 @@ const JoinedPaths = require(`path`).join;
 
 const RbTree = require(`bintrees`).RBTree;
 
-const {assert, assignIfUndefined, Collab, rejectBadInput, AsJson, FromJson, EmptyLog, 
+const {assert, MergedObjects, Collab, defaultValAsString, 
+       rejectBadInput, AsJson, FromJson, FromString, EmptyLog, 
        StoredStringLog, AssertionError, firstVersion, jsonSeparator, 
-       IsFromRejectBadInput, rejectBadInput} = require(`@masalamunch/collab-utils`);
+       IsFromRejectBadInput} = require(`@masalamunch/collab-utils`);
 
 const NewServerId = require(`./NewServerId.js`);
 
@@ -24,15 +25,11 @@ module.exports = class extends Collab {
 
     constructor (config) {
 
+        config = MergedObjects(defaultConfig, config);
+
         super(config);
 
-        const fullConfig = {};
-
-        Object.assign(fullConfig, config);
-
-        assignIfUndefined(fullConfig, defaultConfig);
-
-        const {storagePath, handleClientInputRejection} = fullConfig;
+        const {storagePath, handleClientInputRejection} = config;
 
         if (storagePath === undefined) {
 
@@ -96,10 +93,8 @@ module.exports = class extends Collab {
         let keyAsString;
         const versionKeysAsStrings = this._versionKeysAsStrings;
         let valAsString;
-        const keyAsStringValAsStrings = this._keyAsStringValAsStrings;
-        const defaultValAsString = this._defaultValAsString;
+        const keyAsStringValsAsStrings = this._keyAsStringValsAsStrings;
         const stringChanges = [];
-        let changeCount = 0;
 
         let version = iterator.data();
 
@@ -107,13 +102,13 @@ module.exports = class extends Collab {
 
             keyAsString = versionKeysAsStrings.get(version);
 
-            valAsString = keyAsStringValAsStrings.get(keyAsString);
+            valAsString = keyAsStringValsAsStrings.get(keyAsString);
 
             if (valAsString === undefined) {
                 valAsString = defaultValAsString;
             }
 
-            stringChanges[changeCount++] = [keyAsString, valAsString];
+            stringChanges.push([keyAsString, valAsString]);
 
         } while ((version = iterator.next()) !== null);
 
@@ -123,13 +118,13 @@ module.exports = class extends Collab {
 
     _writeIntent (intent, intentAsString) {
 
-        const info = super._writeIntent(intent);
+        const info = super._writeIntent(intent, intentAsString);
 
         let i;
         const changeEvents = info.changeEvents;
         const changeCount = changeEvents.length;
         let e;
-        const stringChanges = [];
+        const stringChanges = new Array(changeCount);
 
         for (i=0; i<changeCount; i++) {
 
@@ -153,7 +148,7 @@ module.exports = class extends Collab {
         const id = this._id;
         let newStringChanges = 0; // i.e. undefined
         let intentStringChangesAsJsonArray = 0; // i.e. undefined
-        let successfullyParsedInput = 1; // i.e. true
+        let inputWasSuccessfullyParsed = 1; // i.e. true
 
         try {
 
@@ -199,13 +194,12 @@ module.exports = class extends Collab {
                 const moreStringChanges = this._VersionTreeStringChangesSince(
                     this._versionTree, version
                     );
-                let changeCount = newStringChanges.length;
 
                 for (i=moreStringChanges.length-1; i>=0; i--) {
                 //^ reverse iteration is fine since trees don't contain 
                 //  overwritten changes
 
-                    newStringChanges[changeCount++] = moreStringChanges[i];
+                    newStringChanges.push(moreStringChanges[i]);
 
                 }
 
@@ -224,14 +218,8 @@ module.exports = class extends Collab {
                 catch (error) {
                     rejectBadInput(error);
                 }
-                if (typeof intentCount !== `number`) {
-                //^ don't need to check for Infinity because json doesn't allow 
-                //  it
-                    rejectBadInput(new AssertionError());
-                }
                 let s;
                 let n;
-                const IntentFromString = this._IntentFromString;
                 intentStringChangesAsJsonArray = intentsAsStrings; 
                 const handleClientInputRejection = this._handleClientInputRejection;
 
@@ -241,15 +229,15 @@ module.exports = class extends Collab {
                     if (typeof s !== `string`) {
                         rejectBadInput(new AssertionError());
                     }
+                    try {
+                        n = FromString(s);
+                    }
+                    catch (error) {
+                        rejectBadInput(error);
+                    }
 
                     try {
 
-                        try {
-                            n = IntentFromString(s);
-                        }
-                        catch (error) {
-                            rejectBadInput(error);
-                        }
                         intentStringChangesAsJsonArray[i] =
                             this._writeIntent(n, s).stringChangesAsJson;
 
@@ -282,7 +270,7 @@ module.exports = class extends Collab {
 
             if (IsFromRejectBadInput(error)) {
 
-                successfullyParsedInput = 0; // i.e. false
+                inputWasSuccessfullyParsed = 0; // i.e. false
                 this._handleClientInputRejection(error.reason);
 
             }
@@ -296,7 +284,7 @@ module.exports = class extends Collab {
 
         return AsJson(
             [id, this._currentVersion, intentStringChangesAsJsonArray, 
-             newStringChanges, successfullyParsedInput]
+             newStringChanges, inputWasSuccessfullyParsed]
             );
 
     }
@@ -309,7 +297,6 @@ module.exports = class extends Collab {
         const keyAsString = changeEvent.keyAsString;
         const oldVersion = keyAsStringVersions.get(keyAsString);
         const versionKeysAsStrings = this._versionKeysAsStrings;
-        const defaultValAsString = this._defaultValAsString;
 
         if (oldVersion !== undefined) {
 
