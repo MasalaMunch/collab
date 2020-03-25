@@ -6,7 +6,7 @@ const RbTree = require(`bintrees`).RBTree;
 
 const {assert, MergedObjects, nonexistentServerId, Collab, defaultValAsString, 
        rejectBadInput, AsJson, FromJson, FromString, EmptyLog, 
-       StoredStringLog, AssertionError, firstVersion, jsonSeparator, 
+       StoredStringLog, AssertionError, jsonSeparator, 
        IsFromRejectBadInput} = require(`@masalamunch/collab-utils`);
 
 const NewServerId = require(`./NewServerId.js`);

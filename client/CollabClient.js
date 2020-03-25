@@ -3,7 +3,7 @@
 const JoinedPaths = require(`path`).join;
 
 const {AsJson, assert, AssertionError, Collab, EmptyLog, StoredStringLog, 
-       jsonSeparator, MergedObjects, nonexistentServerId, defaultValAsString, doNothing, firstVersion, 
+       jsonSeparator, MergedObjects, nonexistentServerId, defaultValAsString, doNothing, 
        FromJson, FromString, IsFromRejectBadInput} = require(`@masalamunch/collab-utils`);
 
 const defaultConfig = {
