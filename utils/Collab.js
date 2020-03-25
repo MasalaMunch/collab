@@ -9,7 +9,6 @@ const CollabState = require(`./CollabState.js`);
 const defaultVal = require(`./defaultVal.js`);
 const defaultValAsString = require(`./defaultValAsString.js`);
 const doNothing = require(`./doNothing.js`);
-const firstVersion = require(`./firstVersion.js`);
 const FromJson = require(`./FromJson.js`);
 const FromString = require(`./FromString.js`);
 const IsFromRejectBadInput = require(`./IsFromRejectBadInput.js`);
